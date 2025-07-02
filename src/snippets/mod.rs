@@ -1,3 +1,3 @@
-mod manager;
-mod snippet;
-mod storage;
+pub mod manager;
+pub mod snippet;
+pub mod storage;
