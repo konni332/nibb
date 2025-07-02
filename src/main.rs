@@ -1,15 +1,13 @@
 use clap::Parser;
-use crate::cli::command::{NibbCli};
-use crate::cli::execute::{execute};
-use crate::utils::fs::ensure_nibb_structure;
 use anyhow::{Context, Result};
+use nibb::{ensure_nibb_structure, execute, NibbCli};
 
 mod cli;
 mod snippets;
 mod utils;
 mod config;
 mod integration;
-
+mod errors;
 
 fn main() -> Result<()>{
     // parse command line input

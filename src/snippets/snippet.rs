@@ -6,7 +6,7 @@ use crossterm::{
     style::{Attribute, Print, SetAttribute},
     ExecutableCommand,
 };
-use std::io::{stdout, Write};
+use std::io::{stdout};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Snippet {
     pub name: String,
