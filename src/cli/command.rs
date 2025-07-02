@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
@@ -26,7 +27,7 @@ pub enum Commands{
         name: String,
         #[clap(short, long)]
         file: Option<String>,
-        #[arg(value_enum)]
+        #[arg(value_enum, default_value = "clipboard")]
         at: Position,
     },
     /// Edit a snippets' content in the terminal, using the configured editor
@@ -72,9 +73,31 @@ pub enum Position {
     Clipboard,
 }
 
+impl Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Position::Marker => write!(f, "marker"),
+            Position::Cursor => write!(f, "cursor"),
+            Position::Start => write!(f, "start"),
+            Position::End => write!(f, "end"),
+            Position::Clipboard => write!(f, "clipboard"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
 pub enum ConfigOp {
     Get,
     Set,
     Reset,
+}
+
+impl Display for ConfigOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self { 
+            ConfigOp::Get => write!(f, "get"),
+            ConfigOp::Set => write!(f, "set"),
+            ConfigOp::Reset => write!(f, "reset"),
+        }
+    }
 }

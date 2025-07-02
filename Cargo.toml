@@ -9,3 +9,6 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 dirs = "6.0.0"
 crossterm = "0.29.0"
+tempfile = "3.20.0"
+anyhow = "1.0.98"
+arboard = "3.6.0"
