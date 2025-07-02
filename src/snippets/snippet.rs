@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashSet;
-use crate::snippets::storage::{load_snippets, save_snippets};
+use crossterm::style::Stylize;
 use crate::utils::fs::get_snippets_dir;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +40,18 @@ impl Snippet {
             path.to_str().unwrap().to_string(),       
         )
     }
-    pub fn pretty(&self) -> String {
-        todo!()
+    pub fn pretty_print(&self, verbose: bool) {
+        let line = self.content.lines().last().unwrap_or("None");
+        println!("    {}:", self.name.clone().bold().green());
+        if verbose {
+            println!("      {} {}", "path".yellow(), self.path);
+        }
+        if let Some(description) = &self.description {
+            println!("        {} {}", "description:".cyan() ,description);       
+        }
+        let tags = self.tags.iter()
+            .map(|t| t.to_string()).collect::<Vec<String>>().join(", ");
+        println!("        {} {}", "tags:".cyan(), tags);
+        println!("        {} {}", "content:".cyan(), line);
     }
 }

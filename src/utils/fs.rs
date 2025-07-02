@@ -18,6 +18,9 @@ pub fn create_necessary_directories() -> Result<(), std::io::Error>{
     Ok(())
 }
 pub fn create_necessary_files() -> Result<(), std::io::Error>{
+    if get_storage_path().exists(){
+        return Ok(());       
+    }
     std::fs::File::create(get_storage_path())?;
     std::fs::write(get_storage_path(), "[]")?;
     Ok(())

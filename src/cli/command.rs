@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
@@ -46,7 +45,8 @@ pub enum Commands{
         #[clap(long)]
         json: bool,
     },
-    /// Load snippets from the specified MarkDown file
+    /// Load snippets from the specified Markdown file
+    #[clap(alias = "md")]
     LoadMd {
         file: String,
     },
@@ -77,8 +77,4 @@ pub enum ConfigOp {
     Get,
     Set,
     Reset,
-}
-
-pub fn parse_cli() -> NibbCli { 
-    NibbCli::parse()
 }

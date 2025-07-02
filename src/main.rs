@@ -1,5 +1,6 @@
-use crate::cli::command::{parse_cli, Commands, NibbCli};
-use crate::cli::execute::{execute, new_snippet};
+use clap::Parser;
+use crate::cli::command::{NibbCli};
+use crate::cli::execute::{execute};
 use crate::utils::fs::ensure_nibb_structure;
 
 mod cli;
@@ -11,7 +12,7 @@ mod integration;
 
 fn main() {
     // parse command line input
-    let cli = parse_cli();
+    let cli = NibbCli::parse();
     // ensure the necessary files and directories are in place
     ensure_nibb_structure().map_err(|e| println!("{:?}", e))
         .expect("Failed to ensure nibb structure");
