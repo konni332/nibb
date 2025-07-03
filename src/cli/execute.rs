@@ -55,7 +55,7 @@ fn print_snippet_list(snippets: &[Snippet], verbose: bool) {
 pub fn execute(cli: NibbCli, cfg: Settings) -> Result<()>{
     match cli.command {
         Commands::Create { name, tags } => {
-            if !cli.quiet {println!("Create {:?} {:?}", name, tags);}
+            if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
             new_snippet(name, tags)?;
         }
         Commands::List { tags, .. } => {
