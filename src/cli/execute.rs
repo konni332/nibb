@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::cli::command::{Commands, ConfigOp, NibbCli, Position};
+use crate::cli::command::{Commands, ConfigOp, NibbCli, Position, TagOp};
 use anyhow::{bail, Context, Result};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
@@ -14,10 +14,15 @@ use crate::snippets::manager::{
     edit_snippet,
     insert_to_clipboard,
     insert_to_file_end,
-     insert_to_file_start
+    insert_to_file_start,
+    remove_tag,
+    add_tag,
+    get_snippet_mut,
+    fuzzy_search,
 };
 use crate::snippets::snippet::Snippet;
 use crate::snippets::manager::insert_to_file_marker;
+use crate::snippets::storage::{load_snippets, save_snippets};
 
 pub fn prompt_markers_cli(marker_lines: &[usize]) -> Result<Vec<usize>, std::io::Error> {
     if marker_lines.is_empty() {
@@ -40,7 +45,7 @@ pub fn prompt_markers_cli(marker_lines: &[usize]) -> Result<Vec<usize>, std::io:
     Ok(selected_lines)
 }
 
-fn print_snippet_list(snippets: &[Snippet], verbose: bool) {
+fn print_snippet_list(snippets: &[&Snippet], verbose: bool) {
     if snippets.is_empty() {
         println!("{}", "No snippets found".yellow());
         return;
@@ -53,31 +58,53 @@ fn print_snippet_list(snippets: &[Snippet], verbose: bool) {
 
 /// Execute a CLI command
 pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
+    let mut snippets = load_snippets()?;
     match cli.command {
         Commands::New { name, tags, clip } => {
             if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
-            new_snippet(name.clone(), tags)?;
+            new_snippet(name.clone(), tags, &mut snippets)?;
             if clip {
-                edit_snippet(name, "", clip)?; // no need for an editor
+                let snippet = get_snippet_mut(&name, &mut snippets)?;
+                edit_snippet(snippet, "", clip)?; // no need for an editor
             }
         }
         Commands::List { tags, .. } => {
-            let snippets = list_snippets(tags)?;
+            let snippets = list_snippets(tags, &snippets)?;
             print_snippet_list(&snippets, cli.verbose);
         }
         Commands::Rename {old_name, new_name} => {
             if !cli.quiet {println!("Rename {:?} {:?}", old_name, new_name);}
-            rename_snippet(old_name, new_name)?;
+            rename_snippet(old_name, new_name, &mut snippets)?;
         }
         Commands::Delete {name} => {
-            delete_snippet(name)?;       
+            delete_snippet(name, &mut snippets)?;       
         }
         Commands::Insert {name, file, at} => {
-            insert_snippet(name, file, at, &cfg)?;
+            insert_snippet(&mut snippets, name, file, at, &cfg)?;
+        }
+        Commands::Cpy {name} => {
+            insert_to_clipboard(&name, &snippets)?;      
+        }
+        Commands::Tag {op, name, tags} => {
+            match op { 
+                TagOp::Add => {
+                    let snippet = get_snippet_mut(&name, &mut snippets)?;
+                    for tag in &tags {
+                        add_tag(snippet, tag)?;
+                    }
+                },
+                TagOp::Rm => {
+                    let snippet = get_snippet_mut(&name, &mut snippets)?;
+                    for tag in &tags {
+                        remove_tag(snippet, tag)?;
+                    }   
+                },
+            }
         }
         Commands::Edit {name, clip} => {
             let editor = cfg.editor();
-            edit_snippet(name, editor, clip)?;      
+            let snippet = get_snippet_mut(&name, &mut snippets)?;
+            edit_snippet(snippet, editor, clip)?;      
         }
         Commands::Config {op, key, value} => {
             match op { 
@@ -100,41 +127,34 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             }
             cfg.save()?;       
         }
-        _ => {
-            println!("Command {:?}: not implemented yet!", cli.command)
+        Commands::Fuzz { query } => {
+            let found = fuzzy_search(&query, &snippets);
+            print_snippet_list(found.as_slice(), cli.verbose);
         }
     }
+    save_snippets(&snippets)?;
     Ok(())
 }
 
 /// Genric insert function that matches the given Position and calls the appropriate insert function
-pub fn insert_snippet(name: String, file: Option<String>, at: Position, cfg: &Settings) -> std::result::Result<(), NibbError> {
-    let file = if at != Position::Clipboard {
-        if let Some(file) = file {
-            file
-        }
-        else {
-            return Err(NibbError::FSError("No file specified for insertion".to_string()))
-        }
-    }
-    else {
-        "".to_string()
-    };
+pub fn insert_snippet(
+    snippets: &mut [Snippet],
+    name: String,
+    file: String,
+    at: Position,
+    cfg: &Settings
+) -> std::result::Result<(), NibbError> {
     match at {
-        Position::Clipboard => {
-            insert_to_clipboard(&name)?;
-            println!("Snippet '{}' copied to clipboard", name);
-        },
         Position::End => {
-            insert_to_file_end(&name, &file)?;
+            insert_to_file_end(&name, &file, snippets)?;
             println!("Snippet '{}' inserted at end of file", name);
         }
         Position::Start => {
-            insert_to_file_start(&name, &file)?;
+            insert_to_file_start(&name, &file, snippets)?;
             println!("Snippet '{}' inserted at start of file", name);
         },
         Position::Marker => {
-            insert_to_file_marker(&name, &file, cfg.marker(), prompt_markers_cli)?;
+            insert_to_file_marker(&name, &file, cfg.marker(), snippets, prompt_markers_cli)?;
         },
         Position::Cursor => {
             eprintln!("Cursor inserts are not available in CLI. Use a editor integration instead.")

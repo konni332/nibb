@@ -27,14 +27,16 @@ pub enum Commands{
     /// Insert a snippet at the specified position
     Insert {
         name: String,
-        #[clap(short, long)]
-        file: Option<String>,
+        file: String,
         #[arg(value_enum, default_value = "clipboard")]
         at: Position,
     },
+    /// Copies the snippets' content to the systems clipboard
+    Cpy {
+        name: String,
+    },
     /// Edit a snippets' content in the terminal, using the configured editor
     Edit {
-        /// 
         #[clap(short, long)]
         clip: bool,
         name: String,
@@ -51,11 +53,6 @@ pub enum Commands{
         #[clap(long)]
         json: bool,
     },
-    /// Load snippets from the specified Markdown file
-    #[clap(alias = "md")]
-    LoadMd {
-        file: String,
-    },
     /// Configure Nibb
     Config {
         #[arg(value_enum)]
@@ -67,16 +64,29 @@ pub enum Commands{
     /// Delete a snippet
     Delete {
         name: String,
+    },
+    /// Adds the specified tags to an existing snippet
+    Tag {
+        #[arg(value_enum)]
+        op: TagOp,
+        name: String,
+        tags: Vec<String>,
+    },
+    // Fuzzy search
+    Fuzz {
+        query: String,
     }
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
 pub enum Position {
+    /// Insert at markers in your file. The Marker can be changed in the configuration file
+    /// or using the config subcommand
     Marker,
+    /// Not supported via CLI. Use an integration in your editor to insert at cursor
     Cursor,
     Start,
     End,
-    Clipboard,
 }
 
 impl Display for Position {
@@ -86,7 +96,6 @@ impl Display for Position {
             Position::Cursor => write!(f, "cursor"),
             Position::Start => write!(f, "start"),
             Position::End => write!(f, "end"),
-            Position::Clipboard => write!(f, "clipboard"),
         }
     }
 }
@@ -106,4 +115,10 @@ impl Display for ConfigOp {
             ConfigOp::Reset => write!(f, "reset"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+pub enum TagOp {
+    Add,
+    Rm,
 }
