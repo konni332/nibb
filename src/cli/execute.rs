@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use crate::cli::command::{Commands, NibbCli, Position};
-use anyhow::{Result};
+use crate::cli::command::{Commands, ConfigOp, NibbCli, Position};
+use anyhow::{anyhow, bail, Context, Result};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use crate::config::settings::Settings;
@@ -52,7 +52,7 @@ fn print_snippet_list(snippets: &[Snippet], verbose: bool) {
 }
 
 /// Execute a CLI command
-pub fn execute(cli: NibbCli, cfg: Settings) -> Result<()>{
+pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
     match cli.command {
         Commands::Create { name, tags } => {
             if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
@@ -75,6 +75,27 @@ pub fn execute(cli: NibbCli, cfg: Settings) -> Result<()>{
         Commands::Edit {name} => {
             let editor = cfg.editor();
             edit_snippet(name, editor)?;      
+        }
+        Commands::Config {op, key, value} => {
+            match op { 
+                ConfigOp::Set => {
+                    if let Some(val) = value {
+                        cfg.set(&key, &val)?;
+                    }
+                    else {
+                        bail!("No value specified for config")
+                    }
+                },
+                ConfigOp::Get => {
+                    let val = cfg.get(&key).with_context(|| "Error getting config value: ")?;
+                    println!("{}: {}", key, val);
+                },
+                ConfigOp::Reset => {
+                    cfg.reset(Some(&key))?;
+                    if !cli.quiet {println!("Config reset: {}", key);}
+                },
+            }
+            cfg.save()?;       
         }
         _ => {
             println!("Command {:?}", cli.command)

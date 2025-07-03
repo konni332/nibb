@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::cli::command::ConfigOp;
 use crate::errors::NibbError;
 use crate::utils::fs::get_nibb_dir;
 use crate::utils::os::editor_available;
@@ -37,6 +38,54 @@ impl Settings {
     pub fn marker(&self) -> &str {
         &self.marker
     }   
+    pub fn reset(&mut self, key: Option<&str>) -> Result<(), NibbError> {
+        match key {
+            Some(key) => self.set(key, "default"),
+            None => {
+                self.editor = get_default_editor();
+                self.marker = get_default_marker();
+                Ok(())
+            }
+        }
+    }
+    pub fn set(&mut self, key: &str, value: &str) -> Result<(), NibbError> {
+        match key { 
+            "editor" => {
+                if value == "default" {
+                    self.editor = get_default_editor();
+                }
+                else {
+                    self.editor = String::from(value);   
+                }
+                Ok(())
+            },
+            "marker" => {
+                if value == "default" {
+                    self.marker = get_default_marker();  
+                }
+                else {
+                    self.marker = String::from(value);
+                }
+                Ok(())
+            },
+            _ => {
+                Err(NibbError::NotFound(format!("Key '{}' in settings", key)))
+            }
+        }
+    }
+    pub fn get(&self, key: &str) -> Result<String, NibbError> {
+        match key {
+            "editor" => Ok(self.editor.clone()),
+            "marker" => Ok(self.marker.clone()),
+            _ => {
+                Err(NibbError::NotFound(format!("Key '{}' in settings", key)))
+            }
+        }
+    }
+}
+
+pub fn get_default_marker() -> String {
+    String::from("//NIBB")
 }
 
 pub fn get_default_editor() -> String {
