@@ -1,5 +1,6 @@
+#![allow(dead_code)]
+
 use serde::{Serialize, Deserialize};
-use crate::cli::command::ConfigOp;
 use crate::errors::NibbError;
 use crate::utils::fs::get_nibb_dir;
 use crate::utils::os::editor_available;

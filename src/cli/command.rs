@@ -17,10 +17,12 @@ pub struct NibbCli{
 #[derive(Subcommand, Debug)]
 pub enum Commands{
     /// Create a new Snippet
-    Create {
+    New {
         name: String,
         #[clap(short, long)]
         tags: Option<Vec<String>>,
+        #[clap(short, long)]
+        clip: bool,
     },
     /// Insert a snippet at the specified position
     Insert {

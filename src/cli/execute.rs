@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::cli::command::{Commands, ConfigOp, NibbCli, Position};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use crate::config::settings::Settings;
@@ -54,9 +54,12 @@ fn print_snippet_list(snippets: &[Snippet], verbose: bool) {
 /// Execute a CLI command
 pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
     match cli.command {
-        Commands::Create { name, tags } => {
+        Commands::New { name, tags, clip } => {
             if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
-            new_snippet(name, tags)?;
+            new_snippet(name.clone(), tags)?;
+            if clip {
+                edit_snippet(name, "", clip)?; // no need for an editor
+            }
         }
         Commands::List { tags, .. } => {
             let snippets = list_snippets(tags)?;

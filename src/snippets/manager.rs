@@ -6,7 +6,6 @@ use crate::utils::clipboard::copy_to_clipboard;
 use std::fs::{self};
 use std::process::Command;
 use tempfile::NamedTempFile;
-use crate::cli::command::Position;
 use crate::errors::NibbError;
 use std::io::Write;
 use crate::utils::clipboard;
