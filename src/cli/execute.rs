@@ -72,9 +72,9 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
         Commands::Insert {name, file, at} => {
             insert_snippet(name, file, at, &cfg)?;
         }
-        Commands::Edit {name} => {
+        Commands::Edit {name, clip} => {
             let editor = cfg.editor();
-            edit_snippet(name, editor)?;      
+            edit_snippet(name, editor, clip)?;      
         }
         Commands::Config {op, key, value} => {
             match op { 
@@ -98,7 +98,7 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             cfg.save()?;       
         }
         _ => {
-            println!("Command {:?}", cli.command)
+            println!("Command {:?}: not implemented yet!", cli.command)
         }
     }
     Ok(())

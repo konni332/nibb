@@ -32,6 +32,9 @@ pub enum Commands{
     },
     /// Edit a snippets' content in the terminal, using the configured editor
     Edit {
+        /// 
+        #[clap(short, long)]
+        clip: bool,
         name: String,
     },
     /// Rename a snippet
@@ -55,6 +58,7 @@ pub enum Commands{
     Config {
         #[arg(value_enum)]
         op: ConfigOp,
+        /// possible values: [marker, editor]
         key: String,
         value: Option<String>,
     },

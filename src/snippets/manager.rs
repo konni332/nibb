@@ -9,6 +9,7 @@ use tempfile::NamedTempFile;
 use crate::cli::command::Position;
 use crate::errors::NibbError;
 use std::io::Write;
+use crate::utils::clipboard;
 use crate::utils::markers::find_markers;
 
 // === Insertions ===
@@ -109,28 +110,35 @@ pub fn new_snippet(name: String, tags: Option<Vec<String>>) -> Result<(), NibbEr
 
 /// Executes the specified editor on a temporary file, containing the snippet.
 /// After saving the edited content in the temporary file, the content is saved into the snippet.
-pub fn edit_snippet(name: String, editor: &str) -> Result<(), NibbError> {
+pub fn edit_snippet(name: String, editor: &str, clip: bool) -> Result<(), NibbError> {
     let mut snippets = load_snippets()?;
     let index = snippets.iter().position(|s| s.name == name);
     if let Some(i) = index {
-        let mut temp_file = NamedTempFile::new()
-            .map_err(|e| NibbError::FSError(format!("Could not create temp file: {}", e)))?;
-        write!(temp_file, "{}", snippets[i].content)
-            .map_err(|e| NibbError::FSError(format!("Could not write to temp file: {}", e)))?;
-
-        let status = Command::new(editor)
-            .arg(temp_file.path())
-            .status()
-            .map_err(|e| NibbError::EditorError(format!("Could not execute editor: {}", e)))?;
-
-        if !status.success() {
-            return Err(NibbError::EditorError(
-                format!("Editor exited with status {}", status.code().unwrap())
-            ))
+        let new_content: String;
+        if clip {
+            new_content = clipboard::paste_from_clipboard()?;
         }
+        else {
+            let mut temp_file = NamedTempFile::new()
+                .map_err(|e| NibbError::FSError(format!("Could not create temp file: {}", e)))?;
+            write!(temp_file, "{}", snippets[i].content)
+                .map_err(|e| NibbError::FSError(format!("Could not write to temp file: {}", e)))?;
 
-        let new_content = fs::read_to_string(temp_file.path())
-            .map_err(|e| NibbError::FSError(format!("Could not read temp file: {}", e)))?;
+            let status = Command::new(editor)
+                .arg(temp_file.path())
+                .status()
+                .map_err(|e| NibbError::EditorError(format!("Could not execute editor: {}", e)))?;
+
+            if !status.success() {
+                return Err(NibbError::EditorError(
+                    format!("Editor exited with status {}", status.code().unwrap())
+                ))
+            }
+
+            new_content = fs::read_to_string(temp_file.path())
+                .map_err(|e| NibbError::FSError(format!("Could not read temp file: {}", e)))?;
+        }
+        
         snippets[i].content = new_content;
         save_snippets(&snippets)?;
         Ok(())
