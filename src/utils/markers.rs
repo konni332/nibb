@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+/// Finds lines with markers. Prompts with the given function, with lines should be replaced.
+/// Replaces all marked and confirmed lines with the given content
 pub fn find_markers<F>(content: &str, file_name: &str, marker: &str, prompt_fn: F) -> Result<(), std::io::Error>
 where 
     F: Fn(&[usize]) -> Result<Vec<usize>, std::io::Error>

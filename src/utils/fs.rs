@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
+use crate::config::settings::Settings;
 use crate::errors::NibbError;
 pub fn get_nibb_dir() -> Result<PathBuf, NibbError> {
     Ok(
@@ -23,12 +24,26 @@ pub fn create_necessary_directories() -> Result<(), NibbError>{
     std::fs::create_dir_all(get_snippets_dir()?)?;
     Ok(())
 }
+
+pub fn create_default_toml() -> Result<(), NibbError>{
+    let path = get_nibb_dir()?.join("nibb.toml");
+    if path.exists(){
+        return Ok(());      
+    }
+    let settings = Settings::default();
+    settings.save()?;
+    Ok(())
+}
+
+/// Creates all necessary files, i.e., storage.json, nibb.toml
 pub fn create_necessary_files() -> Result<(), NibbError>{
     if get_storage_path()?.exists(){
         return Ok(());       
     }
     std::fs::File::create(get_storage_path()?)?;
     std::fs::write(get_storage_path()?, "[]")?;
+    
+    create_default_toml()?;
     Ok(())
 }
 

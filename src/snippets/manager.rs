@@ -5,11 +5,11 @@ use crate::snippets::snippet::Snippet;
 use crate::utils::clipboard::copy_to_clipboard;
 use std::fs::{self};
 use std::process::Command;
-use crossterm::style::Stylize;
 use tempfile::NamedTempFile;
 use crate::cli::command::Position;
 use crate::errors::NibbError;
 use std::io::Write;
+use crate::utils::markers::find_markers;
 
 // === Insertions ===
 /// Inserts the content of the given snippet, if found, into the systems clipboard
@@ -37,39 +37,21 @@ pub fn insert_to_file_start(name: &str, file: &str) -> Result<(), NibbError> {
     Ok(())
 }
 
-/// Genric insert function that matches the given Position and calls the appropriate insert function
-pub fn insert_snippet(name: String, file: Option<String>, at: Position) -> Result<(), NibbError> {
-    let file = if at != Position::Clipboard {
-        if let Some(file) = file {
-            file
-        }
-        else { 
-            return Err(NibbError::FSError("No file specified for insertion".to_string()))
-        }
-    }
-    else {
-        "".to_string()
-    };
-    match at {
-        Position::Clipboard => {
-            insert_to_clipboard(&name)?;
-            println!("Snippet '{}' copied to clipboard", name);
-        },
-        Position::End => {
-            insert_to_file_end(&name, &file)?;
-            println!("Snippet '{}' inserted at end of file", name);
-        }
-        Position::Start => {
-            insert_to_file_start(&name, &file)?;
-            println!("Snippet '{}' inserted at start of file", name);
-        },
-        Position::Cursor => {
-            eprintln!("Cursor inserts are not available in CLI. Use a editor integration instead.")
-        },
-        Position::Marker => {
-            println!("Snippet '{}' inserted at marker[s] in file", name);
-        },
-    }
+/// Inserts snippet content into the given marker in the given file and might prompt you to confirm,
+/// depending on the passed in prompt_fn function.
+pub fn insert_to_file_marker<F>(
+    name: &str,
+    file: &str,
+    marker: &str,
+    prompt_fn: F
+) -> Result<(), NibbError> 
+where 
+    F: Fn(&[usize]) -> Result<Vec<usize>, std::io::Error>
+{
+    let snippets = load_snippets()?;
+    let snippet = get_snippet(name, &snippets)?;
+    let content = &snippet.content;
+    find_markers(content, file, marker, prompt_fn)?;
     Ok(())
 }
 
@@ -116,7 +98,7 @@ pub fn list_snippets(tags: Option<Vec<String>>) -> Result<Vec<Snippet>, NibbErro
     Ok(matching_snippets)
 }
 
-
+/// Creates a new, empty snippet and saves it to disk
 pub fn new_snippet(name: String, tags: Option<Vec<String>>) -> Result<(), NibbError> {
     let mut snippets = load_snippets()?;
     let snippet = Snippet::create(name, tags);
@@ -125,6 +107,8 @@ pub fn new_snippet(name: String, tags: Option<Vec<String>>) -> Result<(), NibbEr
     Ok(())
 }
 
+/// Executes the specified editor on a temporary file, containing the snippet.
+/// After saving the edited content in the temporary file, the content is saved into the snippet.
 pub fn edit_snippet(name: String, editor: &str) -> Result<(), NibbError> {
     let mut snippets = load_snippets()?;
     let index = snippets.iter().position(|s| s.name == name);

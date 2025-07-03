@@ -1,15 +1,5 @@
-test
-test
-fn main() -> Result<(), std::io::Error> {
-	println!("Hello world");
-	Ok(())
-}
+//NIBB
 
+//NIBB
 
-fn main() -> Result<(), std::io::Error> {
-	println!("Hello world");
-	Ok(())
-}
-
-
-// marker
+//NIBB
