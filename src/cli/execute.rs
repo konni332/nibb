@@ -93,6 +93,8 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             delete_snippet(&mut conn, &name)?;       
         }
         Commands::Insert {name, file, at} => {
+            if !cli.quiet {println!("Insert {} at {} in {}", name, at, file);}
+            dbg!(std::env::current_dir()?);
             insert_snippet(&mut conn, name, file, at, &cfg)?;
         }
         Commands::Cpy {name} => {

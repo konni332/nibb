@@ -35,8 +35,8 @@ pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, name: &str) -> R
     let tx = conn.transaction()?;
 
     tx.execute(
-        "UPDATE snippets SET name = ?1, content = ?2, description = ?3, path = ?4 WHERE name = ?5",
-        params![snippet.name, snippet.content, snippet.description, snippet.path, name],
+        "UPDATE snippets SET name = ?1, content = ?2, description = ?3 WHERE name = ?4",
+        params![snippet.name, snippet.content, snippet.description, name],
     )?;
 
     let snippet_id: i64 = tx.query_row(

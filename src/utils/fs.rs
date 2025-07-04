@@ -93,8 +93,10 @@ fn print_git_notes() {
 
 /// ensures the necessary structure, for all operations with Nibb
 pub fn ensure_nibb_structure() -> Result<(), NibbError>{
+    let cwd = std::env::current_dir()?;
     create_necessary_directories()?;
     create_necessary_files()?;
     create_git_repo()?;
+    std::env::set_current_dir(&cwd)?;
     Ok(())
 }
