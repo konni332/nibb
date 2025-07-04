@@ -15,7 +15,7 @@ use crate::utils::markers::find_markers;
 pub fn insert_to_clipboard(name: &str, conn: &Connection) -> Result<(), NibbError> {
     let snippet = get_snippet(conn, name)?;
     let content = snippet.content.clone();
-    copy_to_clipboard(&content)?;
+    copy_to_clipboard(&normalize_content(&content))?;
     Ok(())
 }
 /// Appends the content of the given snippet, if found, to the given file if it exists
@@ -23,7 +23,7 @@ pub fn insert_to_file_end(name: &str, file: &str, conn: &Connection) -> Result<(
     let original = fs::read_to_string(file)?;
     let content = get_snippet(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", original, content);
-    fs::write(file, new_content)?;
+    fs::write(file, normalize_content(&new_content))?;
     Ok(())
 }
 /// Prepends the content of the given snippet, if found, to the given file if it exists
@@ -31,7 +31,7 @@ pub fn insert_to_file_start(name: &str, file: &str, conn: &Connection) -> Result
     let original = fs::read_to_string(file)?;
     let content = get_snippet(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", content, original);
-    fs::write(file, new_content)?;
+    fs::write(file, normalize_content(&new_content))?;
     Ok(())
 }
 
@@ -122,6 +122,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::Connection;
 use crate::snippets::storage::{add_tag_db, get_snippet, insert_snippet, rm_tag_db, update_snippet};
+use crate::utils::fs::normalize_content;
 
 pub fn fuzzy_search<'a>(query: &str, snippets: &'a [Snippet]) -> Vec<&'a Snippet> {
     let matcher = SkimMatcherV2::default();

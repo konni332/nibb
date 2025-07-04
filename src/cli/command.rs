@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[derive(Parser, Debug, Clone)]
 #[command(name = "nibb")]
 #[command(about = "Nibb - the friendly CLI for snippets of all kinds")]
-#[clap(version = "0.2.0")]
+#[clap(version = "0.3.0")]
 pub struct NibbCli{
     #[command(subcommand)]
     pub command: Commands,

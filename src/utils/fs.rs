@@ -100,3 +100,7 @@ pub fn ensure_nibb_structure() -> Result<(), NibbError>{
     std::env::set_current_dir(&cwd)?;
     Ok(())
 }
+
+pub fn normalize_content(content: &str) -> String {
+    content.replace("\r\n", "\n")
+}

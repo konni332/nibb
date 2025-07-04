@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::utils::fs::normalize_content;
+
 /// Finds lines with markers. Prompts with the given function, with lines should be replaced.
 /// Replaces all marked and confirmed lines with the given content
 pub fn find_markers<F>(content: &str, file_name: &str, marker: &str, prompt_fn: F) -> Result<(), std::io::Error>
@@ -25,6 +27,6 @@ where
             new_lines.push(line);
         }
     }
-    std::fs::write(file_name, new_lines.join("\n"))?;
+    std::fs::write(file_name, normalize_content(&new_lines.join("\n")))?;
     Ok(())
 }
