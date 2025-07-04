@@ -6,6 +6,7 @@ use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use crate::config::settings::Settings;
 use crate::errors::NibbError;
+use crate::integration::git::{nibb_git, nibb_git_post_actions, nibb_git_pre_actions};
 use crate::snippets::manager::{
     new_snippet,
     rename_snippet,
@@ -58,25 +59,31 @@ fn print_snippet_list(snippets: &[&Snippet], verbose: bool) {
 
 /// Execute a CLI command
 pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
+    nibb_git_pre_actions(&cfg)?;
+    let mut changed = String::new();
     let mut snippets = load_snippets()?;
     match cli.command {
         Commands::New { name, tags, clip } => {
+            changed = name.clone();
             if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
             new_snippet(name.clone(), tags, &mut snippets)?;
             if clip {
                 let snippet = get_snippet_mut(&name, &mut snippets)?;
-                edit_snippet(snippet, "", clip)?; // no need for an editor
+                edit_snippet(snippet, "", clip)?; // no need for an editor (Clipboard)
             }
         }
-        Commands::List { tags, .. } => {
+        Commands::List { tags } => {
             let snippets = list_snippets(tags, &snippets)?;
             print_snippet_list(&snippets, cli.verbose);
+            return Ok(()) // nothing was modified, no saves to disk necessary
         }
         Commands::Rename {old_name, new_name} => {
+            changed = old_name.clone();
             if !cli.quiet {println!("Rename {:?} {:?}", old_name, new_name);}
             rename_snippet(old_name, new_name, &mut snippets)?;
         }
         Commands::Delete {name} => {
+            changed = name.clone();
             delete_snippet(name, &mut snippets)?;       
         }
         Commands::Insert {name, file, at} => {
@@ -86,6 +93,7 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             insert_to_clipboard(&name, &snippets)?;      
         }
         Commands::Tag {op, name, tags} => {
+            changed = name.clone();
             match op { 
                 TagOp::Add => {
                     let snippet = get_snippet_mut(&name, &mut snippets)?;
@@ -102,11 +110,13 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             }
         }
         Commands::Edit {name, clip} => {
+            changed = name.clone();
             let editor = cfg.editor();
             let snippet = get_snippet_mut(&name, &mut snippets)?;
             edit_snippet(snippet, editor, clip)?;      
         }
         Commands::Config {op, key, value} => {
+            changed = key.clone();
             match op { 
                 ConfigOp::Set => {
                     if let Some(val) = value {
@@ -131,8 +141,12 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             let found = fuzzy_search(&query, &snippets);
             print_snippet_list(found.as_slice(), cli.verbose);
         }
+        Commands::Git { git_args } => {
+            nibb_git(git_args, true)?; // direct git commands should always be verbose!
+        }
     }
     save_snippets(&snippets)?;
+    nibb_git_post_actions(&changed, &snippets, &cfg)?;
     Ok(())
 }
 

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use clap::{Parser, Subcommand, ValueEnum};
 
-#[derive(Parser)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "nibb")]
 #[command(about = "Nibb - the friendly CLI for snippets of all kinds")]
 #[clap(version = "0.1.0")]
@@ -14,7 +14,7 @@ pub struct NibbCli{
     pub quiet: bool,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Commands{
     /// Create a new Snippet
     New {
@@ -50,8 +50,6 @@ pub enum Commands{
     List {
         #[clap(short, long)]
         tags: Option<Vec<String>>,
-        #[clap(long)]
-        json: bool,
     },
     /// Configure Nibb
     Config {
@@ -72,9 +70,16 @@ pub enum Commands{
         name: String,
         tags: Vec<String>,
     },
-    // Fuzzy search
+    /// Fuzzy search in snippets
     Fuzz {
         query: String,
+    },
+    /// Execute git commands in the .nibb directory. 
+    #[clap(trailing_var_arg = true)]
+    Git {
+        /// Arguments, passed to git.
+        #[clap(num_args = 1)]
+        git_args: Vec<String>,
     }
 }
 

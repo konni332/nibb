@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
+use crossterm::style::Stylize;
 use crate::config::settings::Settings;
 use crate::errors::NibbError;
 pub fn get_nibb_dir() -> Result<PathBuf, NibbError> {
@@ -47,9 +48,45 @@ pub fn create_necessary_files() -> Result<(), NibbError>{
     Ok(())
 }
 
+/// Checks whether a given root is a git repository
+pub fn is_git_repo(path: &PathBuf) -> bool {
+    path.join(".git").exists()
+}
+
+pub fn create_git_repo() -> Result<(), NibbError>{
+    let old_cwd = std::env::current_dir()?;
+    let path = get_nibb_dir()?;
+    std::env::set_current_dir(&path)?;
+    
+    if is_git_repo(&path){
+        return Ok(());      
+    }
+    
+    let status = std::process::Command::new("git")
+        .arg("init")
+        .status()?;
+    if !status.success(){
+        return Err(NibbError::GitError(format!("exited with {}", status)))
+    }
+    std::env::set_current_dir(&old_cwd)?;
+    print_git_notes();
+    Ok(())
+}
+
+fn print_git_notes() {
+    println!("{}", "Initialized git repository in .nibb".green().bold());
+    println!("{}", "If you want to use auto push and pull:".bold().yellow());
+    println!("{}", "  - Add a remote repository with: nibb git remote add <remote> <url>".cyan());
+    println!("{}", "  - Please ensure, that <remote> matches the remote name in your nibb.toml file".cyan());
+    println!("{}", "  - Set an upstream using: nibb git push --set-upstream <remote> <branch>".cyan());
+    println!("{}", "  - Please ensure, that <branch> matches the branch name in your nibb.toml file".cyan());
+    println!("{}", "  - You can now use: nibb git push and nibb git pull or enable auto push and pull in your nibb.toml file".cyan());
+}
+
 /// ensures the necessary structure, for all operations with Nibb
 pub fn ensure_nibb_structure() -> Result<(), NibbError>{
     create_necessary_directories()?;
     create_necessary_files()?;
+    create_git_repo()?;
     Ok(())
 }

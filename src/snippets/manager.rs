@@ -72,7 +72,8 @@ pub fn rename_snippet(old_name: String, new_name: String, snippets: &mut [Snippe
     snippet.name = new_name;
     Ok(())
 }
-/// Lists all snippets, or if it is given tags, it will only list 
+/// Lists all snippets that have at least one of the tags given.
+/// If no tags are given, all snippets will be listed
 pub fn list_snippets(
     tags: Option<Vec<String>>,
     snippets: &[Snippet],

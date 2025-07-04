@@ -6,6 +6,8 @@ pub enum NibbError {
     ClipboardError(String),
     FSError(String),
     EditorError(String),
+    GitError(String),
+    ConfigError(String),
 }
 
 impl From<std::io::Error> for NibbError {
@@ -21,7 +23,9 @@ impl std::fmt::Display for NibbError {
             NibbError::NotFound(s) => write!(f, "Not found: {}", s),
             NibbError::ClipboardError(s) => write!(f, "Clipboard Error: {}", s),
             NibbError::FSError(s) => write!(f, "File System Error: {}", s),
-            NibbError::EditorError(s) => write!(f, "Editor Error: {}", s),       
+            NibbError::EditorError(s) => write!(f, "Editor Error: {}", s),   
+            NibbError::GitError(s) => write!(f, "Git Error: {}", s),       
+            NibbError::ConfigError(s) => write!(f, "Config Error: {}", s),       
         }
     }   
 }
@@ -37,7 +41,9 @@ impl NibbError {
             NibbError::NotFound(s) => serde_json::json!({"type": "not_found", "message": s.to_string()}),
             NibbError::ClipboardError(s) => serde_json::json!({"type": "clipboard", "message": s.to_string()}),
             NibbError::FSError(s) => serde_json::json!({"type": "fs", "message": s.to_string()}),       
-            NibbError::EditorError(s) => serde_json::json!({"type": "editor", "message": s.to_string()}),       
+            NibbError::EditorError(s) => serde_json::json!({"type": "editor", "message": s.to_string()}),     
+            NibbError::GitError(s) => serde_json::json!({"type": "git", "message": s.to_string()}),   
+            NibbError::ConfigError(s) => serde_json::json!({"type": "config", "message": s.to_string()}),      
         }
     }
 }
