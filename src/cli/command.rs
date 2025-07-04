@@ -21,8 +21,10 @@ pub enum Commands{
         name: String,
         #[clap(short, long)]
         tags: Option<Vec<String>>,
-        #[clap(short, long)]
+        #[clap(short, long, conflicts_with = "file")]
         clip: bool,
+        #[clap(short, long, conflicts_with = "clip")]
+        file: Option<String>,
     },
     /// Insert a snippet at the specified position
     Insert {
@@ -53,11 +55,8 @@ pub enum Commands{
     },
     /// Configure Nibb
     Config {
-        #[arg(value_enum)]
+        #[clap(subcommand)]
         op: ConfigOp,
-        /// possible values: [marker, editor]
-        key: String,
-        value: Option<String>,
     },
     /// Delete a snippet
     Delete {
@@ -105,19 +104,26 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, Subcommand)]
 pub enum ConfigOp {
-    Get,
-    Set,
-    Reset,
+    Get{
+        key: String
+    },
+    Set{
+        key: String,
+        value: String,
+    },
+    Reset{
+        key: Option<String>,
+    },
 }
 
 impl Display for ConfigOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self { 
-            ConfigOp::Get => write!(f, "get"),
-            ConfigOp::Set => write!(f, "set"),
-            ConfigOp::Reset => write!(f, "reset"),
+            ConfigOp::Get {..} => write!(f, "get"),
+            ConfigOp::Set {..} => write!(f, "set"),
+            ConfigOp::Reset {..} => write!(f, "reset"),
         }
     }
 }

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::cli::command::{Commands, ConfigOp, NibbCli, Position, TagOp};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use crate::config::settings::Settings;
@@ -24,6 +24,7 @@ use crate::snippets::manager::{
 use crate::snippets::snippet::Snippet;
 use crate::snippets::manager::insert_to_file_marker;
 use crate::snippets::storage::{load_snippets, save_snippets};
+use crate::utils::clipboard::paste_from_clipboard;
 
 pub fn prompt_markers_cli(marker_lines: &[usize]) -> Result<Vec<usize>, std::io::Error> {
     if marker_lines.is_empty() {
@@ -60,16 +61,22 @@ fn print_snippet_list(snippets: &[&Snippet], verbose: bool) {
 /// Execute a CLI command
 pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
     nibb_git_pre_actions(&cfg)?;
-    let mut changed = String::new();
+    let mut changed: Option<String> = None;
     let mut snippets = load_snippets()?;
     match cli.command {
-        Commands::New { name, tags, clip } => {
-            changed = name.clone();
+        Commands::New { name, tags, clip, file } => {
+            changed = Some(name.clone());
             if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
             new_snippet(name.clone(), tags, &mut snippets)?;
             if clip {
+                let content = paste_from_clipboard()?;
                 let snippet = get_snippet_mut(&name, &mut snippets)?;
-                edit_snippet(snippet, "", clip)?; // no need for an editor (Clipboard)
+                snippet.content = content;
+            }
+            if file.is_some() {
+                let content = std::fs::read_to_string(&file.unwrap())?;
+                let snippet = get_snippet_mut(&name, &mut snippets)?;
+                snippet.content = content;
             }
         }
         Commands::List { tags } => {
@@ -78,12 +85,12 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             return Ok(()) // nothing was modified, no saves to disk necessary
         }
         Commands::Rename {old_name, new_name} => {
-            changed = old_name.clone();
+            changed = Some(old_name.clone());
             if !cli.quiet {println!("Rename {:?} {:?}", old_name, new_name);}
             rename_snippet(old_name, new_name, &mut snippets)?;
         }
         Commands::Delete {name} => {
-            changed = name.clone();
+            changed = Some(name.clone());
             delete_snippet(name, &mut snippets)?;       
         }
         Commands::Insert {name, file, at} => {
@@ -93,7 +100,7 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             insert_to_clipboard(&name, &snippets)?;      
         }
         Commands::Tag {op, name, tags} => {
-            changed = name.clone();
+            changed = Some(name.clone());
             match op { 
                 TagOp::Add => {
                     let snippet = get_snippet_mut(&name, &mut snippets)?;
@@ -110,32 +117,30 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             }
         }
         Commands::Edit {name, clip} => {
-            changed = name.clone();
+            changed = Some(name.clone());
             let editor = cfg.editor();
             let snippet = get_snippet_mut(&name, &mut snippets)?;
             edit_snippet(snippet, editor, clip)?;      
         }
-        Commands::Config {op, key, value} => {
-            changed = key.clone();
+        Commands::Config {op} => {
             match op { 
-                ConfigOp::Set => {
-                    if let Some(val) = value {
-                        cfg.set(&key, &val)?;
-                    }
-                    else {
-                        bail!("No value specified for config")
-                    }
+                ConfigOp::Set { key, value } => {
+                    cfg.set(&key, &value)?;
+                    if !cli.quiet {println!("Set config key: {} to: {}", key, value);}  
                 },
-                ConfigOp::Get => {
+                ConfigOp::Get { key } => {
                     let val = cfg.get(&key).with_context(|| "Error getting config value: ")?;
                     println!("{}: {}", key, val);
+                    return Ok(()); // nothing is mutated, so no saves are necessary
                 },
-                ConfigOp::Reset => {
-                    cfg.reset(Some(&key))?;
-                    if !cli.quiet {println!("Config reset: {}", key);}
+                ConfigOp::Reset { key }=> {
+                    let key = key.unwrap_or("all".to_string());
+                    cfg.reset(Some(key.clone()))?;
+                    if !cli.quiet {println!("Reset config key: {}", key);}
                 },
             }
-            cfg.save()?;       
+            cfg.save()?;
+            return Ok(());
         }
         Commands::Fuzz { query } => {
             let found = fuzzy_search(&query, &snippets);
@@ -146,7 +151,12 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
         }
     }
     save_snippets(&snippets)?;
-    nibb_git_post_actions(&changed, &snippets, &cfg)?;
+    match changed {
+        Some(name) => {
+            nibb_git_post_actions(&name, &snippets, &cfg)?;
+        },
+        None => {},
+    }
     Ok(())
 }
 

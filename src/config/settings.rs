@@ -70,13 +70,13 @@ impl Settings {
     pub fn marker(&self) -> &str {
         &self.marker
     }   
-    pub fn reset(&mut self, key: Option<&str>) -> Result<(), NibbError> {
+    pub fn reset(&mut self, key: Option<String>) -> Result<(), NibbError> {
         match key {
-            Some(key) => self.set(key, "default"),
-            None => {
-                self.editor = get_default_editor();
-                self.marker = get_default_marker();
-                Ok(())
+            Some(key) if key != "all" => self.set(&key, "default"),
+            _ => {
+                let default = Settings::default();
+                *self = default;
+                self.save()
             }
         }
     }
