@@ -79,7 +79,14 @@ pub enum Commands{
         /// Arguments, passed to git.
         #[clap(num_args = 1)]
         git_args: Vec<String>,
-    }
+    },
+    /// Export the snippets as a JSON file.
+    Export {
+        #[clap(short, long = "file-name")]
+        file_name: Option<String>,
+        #[clap(short, long)]
+        pretty: bool
+    },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]

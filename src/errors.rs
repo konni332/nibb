@@ -8,6 +8,7 @@ pub enum NibbError {
     EditorError(String),
     GitError(String),
     ConfigError(String),
+    DBError(String),
 }
 
 impl From<std::io::Error> for NibbError {
@@ -25,13 +26,23 @@ impl std::fmt::Display for NibbError {
             NibbError::FSError(s) => write!(f, "File System Error: {}", s),
             NibbError::EditorError(s) => write!(f, "Editor Error: {}", s),   
             NibbError::GitError(s) => write!(f, "Git Error: {}", s),       
-            NibbError::ConfigError(s) => write!(f, "Config Error: {}", s),       
+            NibbError::ConfigError(s) => write!(f, "Config Error: {}", s),
+            NibbError::DBError(s) => write!(f, "Database Error: {}", s),
         }
     }   
 }
 
 impl std::error::Error for NibbError {
     
+}
+
+impl From<rusqlite::Error> for NibbError {
+    fn from(e: rusqlite::Error) -> Self {
+        match e {
+            rusqlite::Error::QueryReturnedNoRows => NibbError::NotFound(e.to_string()),
+            _ => NibbError::DBError(e.to_string()),
+        }
+    }
 }
 
 impl NibbError {
@@ -43,7 +54,8 @@ impl NibbError {
             NibbError::FSError(s) => serde_json::json!({"type": "fs", "message": s.to_string()}),       
             NibbError::EditorError(s) => serde_json::json!({"type": "editor", "message": s.to_string()}),     
             NibbError::GitError(s) => serde_json::json!({"type": "git", "message": s.to_string()}),   
-            NibbError::ConfigError(s) => serde_json::json!({"type": "config", "message": s.to_string()}),      
+            NibbError::ConfigError(s) => serde_json::json!({"type": "config", "message": s.to_string()}),
+            NibbError::DBError(s) => serde_json::json!({"type": "db", "message": s.to_string()}),
         }
     }
 }

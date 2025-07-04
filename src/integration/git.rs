@@ -1,11 +1,13 @@
+use std::collections::HashSet;
 use std::fs::OpenOptions;
-use std::process::{Command, Stdio};
+use std::process::{Command};
 use std::io::Write;
 use chrono::Local;
+use rusqlite::Connection;
 use crate::config::settings::Settings;
 use crate::errors::NibbError;
-use crate::snippets::manager::get_snippet;
 use crate::snippets::snippet::Snippet;
+use crate::snippets::storage::get_snippet;
 use crate::utils::fs::get_nibb_dir;
 
 pub fn nibb_git(command: Vec<String>, verbose: bool) -> Result<(), NibbError> {
@@ -89,16 +91,22 @@ pub fn nibb_git_pre_actions(cfg: &Settings) -> Result<(), NibbError> {
 
 pub fn nibb_git_post_actions(
     name: &str,
-    snippets: &[Snippet],
+    conn: &Connection,
     cfg: &Settings
 ) -> Result<(), NibbError>{
     if !cfg.git_enabled() {
         return Ok(())   
     }
-    let snippet = get_snippet(name, snippets)?;
+    let snippet = get_snippet(conn, name).unwrap_or(Snippet::new(
+        name.to_string(),
+        "".to_string(),
+        HashSet::new(),
+        None,
+        "".to_string()
+    ));
     
     if cfg.auto_commit() {
-        auto_commit(cfg.commit_message(), snippet)?;
+        auto_commit(cfg.commit_message(), &snippet)?;
     }
     if cfg.auto_push() {
         auto_push(cfg.remote(), cfg.branch())?;

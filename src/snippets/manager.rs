@@ -12,24 +12,24 @@ use crate::utils::markers::find_markers;
 
 // === Insertions ===
 /// Inserts the content of the given snippet, if found, into the systems clipboard
-pub fn insert_to_clipboard(name: &str, snippets: &[Snippet]) -> Result<(), NibbError> {
-    let snippet = get_snippet(name, &snippets)?;
+pub fn insert_to_clipboard(name: &str, conn: &Connection) -> Result<(), NibbError> {
+    let snippet = get_snippet(conn, name)?;
     let content = snippet.content.clone();
     copy_to_clipboard(&content)?;
     Ok(())
 }
 /// Appends the content of the given snippet, if found, to the given file if it exists
-pub fn insert_to_file_end(name: &str, file: &str, snippets: &[Snippet]) -> Result<(), NibbError> {
+pub fn insert_to_file_end(name: &str, file: &str, conn: &Connection) -> Result<(), NibbError> {
     let original = fs::read_to_string(file)?;
-    let content = get_snippet(name, snippets)?.content.clone();
+    let content = get_snippet(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", original, content);
     fs::write(file, new_content)?;
     Ok(())
 }
 /// Prepends the content of the given snippet, if found, to the given file if it exists
-pub fn insert_to_file_start(name: &str, file: &str, snippets: &[Snippet]) -> Result<(), NibbError> {
+pub fn insert_to_file_start(name: &str, file: &str, conn: &Connection) -> Result<(), NibbError> {
     let original = fs::read_to_string(file)?;
-    let content = get_snippet(name, snippets)?.content.clone();
+    let content = get_snippet(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", content, original);
     fs::write(file, new_content)?;
     Ok(())
@@ -41,67 +41,39 @@ pub fn insert_to_file_marker<F>(
     name: &str,
     file: &str,
     marker: &str,
-    snippets: &[Snippet],
+    conn: &Connection,
     prompt_fn: F
 ) -> Result<(), NibbError> 
 where 
     F: Fn(&[usize]) -> Result<Vec<usize>, std::io::Error>
 {
-    let snippet = get_snippet(name, &snippets)?;
+    let snippet = get_snippet(conn, name)?;
     let content = &snippet.content;
     find_markers(content, file, marker, prompt_fn)?;
     Ok(())
 }
 
 // === CRUD ===
-/// Deletes the given snippet from disk storage if it exists
-pub fn delete_snippet(name: String, snippets: &mut Vec<Snippet>) -> Result<(), NibbError> {
-    let old_len = snippets.len();
-    snippets.retain(|snippet| snippet.name != name);
-    if snippets.len() < old_len {
-        println!("Snippet '{}' deleted", name);
-    }
-    else {
-        Err(NibbError::NotFound(format!("Snippet {}", name)))?
-    }
-    Ok(())
-}
+//
+
 /// Renames the given snippet if it exists
-pub fn rename_snippet(old_name: String, new_name: String, snippets: &mut [Snippet]) -> Result<(), NibbError> {
-    let snippet = get_snippet_mut(&old_name, snippets)?;
-    snippet.name = new_name;
-    Ok(())
+pub fn rename_snippet(old_name: String, new_name: String, conn: &mut Connection) -> Result<(), NibbError> {
+    let mut new_snippet = get_snippet(conn, &old_name)?.clone();
+    new_snippet.name = new_name;
+    update_snippet(conn, &new_snippet, &old_name)
 }
-/// Lists all snippets that have at least one of the tags given.
-/// If no tags are given, all snippets will be listed
-pub fn list_snippets(
-    tags: Option<Vec<String>>,
-    snippets: &[Snippet],
-) -> Result<Vec<&Snippet>, NibbError> {
-    let tags = tags.unwrap_or_default();
 
-    let matching_snippets = snippets
-        .iter()
-        .filter(|snippet| {
-            snippet.tags.iter().any(|tag| tags.contains(tag))
-                || tags.is_empty()
-                || snippet.name.contains(&tags[0])
-        })
-        .collect::<Vec<&Snippet>>();
-
-    Ok(matching_snippets)
-}
 
 
 /// Creates a new, empty snippet and saves it to disk
 pub fn new_snippet(
     name: String,
     tags: Option<Vec<String>>,
-    snippets: &mut Vec<Snippet>
-) -> Result<&Snippet, NibbError> {
+    conn: &mut Connection
+) -> Result<Snippet, NibbError> {
     let snippet = Snippet::create(name, tags);
-    snippets.push(snippet);
-    Ok(&snippets.last().unwrap())
+    insert_snippet(conn, &snippet)?;
+    Ok(snippet)
 }
 
 /// Executes the specified editor on a temporary file, containing the snippet.
@@ -136,40 +108,20 @@ pub fn edit_snippet(snippet: &mut Snippet, editor: &str, clip: bool) -> Result<(
     Ok(())
 }
 
-// === Utils ===
 
-pub fn get_snippet<'a>(name: &str, snippets: &'a [Snippet]) -> Result<&'a Snippet, NibbError> {
-    for snippet in snippets {
-        if snippet.name == name {
-            return Ok(snippet);
-        }
-    };
-    Err(NibbError::NotFound(format!("Snippet {}", name)))
+
+pub fn add_tag(conn: &mut Connection, snippet_name: &str, tag: &str) -> Result<(), NibbError> {
+    add_tag_db(conn, snippet_name, tag)
 }
 
-pub fn get_snippet_mut<'a>(
-    name: &str, snippets: &'a mut [Snippet]
-) -> Result<&'a mut Snippet, NibbError> {
-    for snippet in snippets {
-        if snippet.name == name {
-            return Ok(snippet);
-        }
-    };
-    Err(NibbError::NotFound(format!("Snippet {}", name)))
-}
-
-pub fn add_tag(snippet: &mut Snippet, tag: &str) -> Result<(), NibbError> {
-    snippet.tags.insert(tag.to_string());
-    Ok(())
-}
-
-pub fn remove_tag(snippet: &mut Snippet, tag: &str) -> Result<(), NibbError> {
-    snippet.tags.remove(tag);
-    Ok(())
+pub fn remove_tag(conn: &mut Connection, snippet_name: &str, tag: &str) -> Result<(), NibbError> {
+    rm_tag_db(conn, snippet_name, tag)
 }
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use rusqlite::Connection;
+use crate::snippets::storage::{add_tag_db, get_snippet, insert_snippet, rm_tag_db, update_snippet};
 
 pub fn fuzzy_search<'a>(query: &str, snippets: &'a [Snippet]) -> Vec<&'a Snippet> {
     let matcher = SkimMatcherV2::default();
