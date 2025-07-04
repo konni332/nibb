@@ -85,7 +85,7 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             return Ok(()) // nothing was modified, no saves to disk necessary
         }
         Commands::Rename {old_name, new_name} => {
-            changed = Some(old_name.clone());
+            changed = Some(new_name.clone());
             if !cli.quiet {println!("Rename {:?} {:?}", old_name, new_name);}
             rename_snippet(old_name, new_name, &mut snippets)?;
         }
