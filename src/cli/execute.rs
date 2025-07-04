@@ -176,11 +176,9 @@ pub fn insert_snippet(
     match at {
         Position::End => {
             insert_to_file_end(&name, &file, conn)?;
-            println!("Snippet '{}' inserted at end of file", name);
         }
         Position::Start => {
             insert_to_file_start(&name, &file, conn)?;
-            println!("Snippet '{}' inserted at start of file", name);
         },
         Position::Marker => {
             insert_to_file_marker(&name, &file, cfg.marker(), conn, prompt_markers_cli)?;
