@@ -36,6 +36,12 @@ impl std::error::Error for NibbError {
     
 }
 
+impl From<NibbError> for String {
+    fn from(e: NibbError) -> Self {
+        e.to_json().to_string()   
+    }   
+}
+
 impl From<rusqlite::Error> for NibbError {
     fn from(e: rusqlite::Error) -> Self {
         match e {

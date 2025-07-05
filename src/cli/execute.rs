@@ -23,6 +23,7 @@ use crate::snippets::snippet::Snippet;
 use crate::snippets::manager::insert_to_file_marker;
 use crate::snippets::storage::{delete_snippet, export_snippets, get_snippet, init_nibb_db, list_snippets, update_snippet};
 use crate::utils::clipboard::paste_from_clipboard;
+use crate::utils::ui::{print_snippet_list};
 
 pub fn prompt_markers_cli(marker_lines: &[usize]) -> Result<Vec<usize>, std::io::Error> {
     if marker_lines.is_empty() {
@@ -45,16 +46,7 @@ pub fn prompt_markers_cli(marker_lines: &[usize]) -> Result<Vec<usize>, std::io:
     Ok(selected_lines)
 }
 
-fn print_snippet_list(snippets: &[&Snippet], verbose: bool) {
-    if snippets.is_empty() {
-        println!("{}", "No snippets found".yellow());
-        return;
-    }
-    println!("{}", "=== Snippets ===".bold());
-    for snippet in snippets {
-        snippet.pretty_print(verbose);
-    }   
-}
+
 
 /// Execute a CLI command
 pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
@@ -64,7 +56,9 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
     match cli.command {
         Commands::New { name, tags, clip, file } => {
             changed = Some(name.clone());
-            if !cli.quiet {println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));}
+            if !cli.quiet {
+                println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));
+            }
             new_snippet(name.clone(), tags, &mut conn)?;
             if clip {
                 let content = paste_from_clipboard()?;
@@ -190,7 +184,7 @@ pub fn insert_snippet(
     Ok(())
 }
 
-fn filter_snippets(snippets: &[Snippet], tags: Option<Vec<String>>) -> Vec<&Snippet> {
+pub fn filter_snippets(snippets: &[Snippet], tags: Option<Vec<String>>) -> Vec<&Snippet> {
     let mut filtered = Vec::new();
     let tags = tags.unwrap_or(vec![]);
     for snippet in snippets {

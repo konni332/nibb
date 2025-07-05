@@ -1,6 +1,9 @@
 use clap::Parser;
 use anyhow::{Context, Result};
-use nibb::*;
+use crate::cli::command::NibbCli;
+use crate::cli::execute::execute;
+use crate::config::settings::Settings;
+use crate::utils::fs::ensure_nibb_structure;
 
 mod cli;
 mod snippets;
