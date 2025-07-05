@@ -13,7 +13,7 @@ use crate::utils::markers::find_markers;
 // === Insertions ===
 /// Inserts the content of the given snippet, if found, into the systems clipboard
 pub fn insert_to_clipboard(name: &str, conn: &Connection) -> Result<(), NibbError> {
-    let snippet = get_snippet(conn, name)?;
+    let snippet = get_snippet_by_name(conn, name)?;
     let content = snippet.content.clone();
     copy_to_clipboard(&normalize_content(&content))?;
     Ok(())
@@ -21,7 +21,7 @@ pub fn insert_to_clipboard(name: &str, conn: &Connection) -> Result<(), NibbErro
 /// Appends the content of the given snippet, if found, to the given file if it exists
 pub fn insert_to_file_end(name: &str, file: &str, conn: &Connection) -> Result<(), NibbError> {
     let original = fs::read_to_string(file)?;
-    let content = get_snippet(conn, name)?.content.clone();
+    let content = get_snippet_by_name(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", original, content);
     fs::write(file, normalize_content(&new_content))?;
     Ok(())
@@ -29,7 +29,7 @@ pub fn insert_to_file_end(name: &str, file: &str, conn: &Connection) -> Result<(
 /// Prepends the content of the given snippet, if found, to the given file if it exists
 pub fn insert_to_file_start(name: &str, file: &str, conn: &Connection) -> Result<(), NibbError> {
     let original = fs::read_to_string(file)?;
-    let content = get_snippet(conn, name)?.content.clone();
+    let content = get_snippet_by_name(conn, name)?.content.clone();
     let new_content = format!("{}\n{}", content, original);
     fs::write(file, normalize_content(&new_content))?;
     Ok(())
@@ -47,7 +47,7 @@ pub fn insert_to_file_marker<F>(
 where 
     F: Fn(&[usize]) -> Result<Vec<usize>, std::io::Error>
 {
-    let snippet = get_snippet(conn, name)?;
+    let snippet = get_snippet_by_name(conn, name)?;
     let content = &snippet.content;
     find_markers(content, file, marker, prompt_fn)?;
     Ok(())
@@ -58,9 +58,10 @@ where
 
 /// Renames the given snippet if it exists
 pub fn rename_snippet(old_name: String, new_name: String, conn: &mut Connection) -> Result<(), NibbError> {
-    let mut new_snippet = get_snippet(conn, &old_name)?.clone();
+    let mut new_snippet = get_snippet_by_name(conn, &old_name)?.clone();
+    let id = new_snippet.id;
     new_snippet.name = new_name;
-    update_snippet(conn, &new_snippet, &old_name)
+    update_snippet(conn, &new_snippet, id)
 }
 
 
@@ -121,7 +122,7 @@ pub fn remove_tag(conn: &mut Connection, snippet_name: &str, tag: &str) -> Resul
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::Connection;
-use crate::snippets::storage::{add_tag_db, get_snippet, insert_snippet, rm_tag_db, update_snippet};
+use crate::snippets::storage::{add_tag_db, get_snippet, get_snippet_by_name, insert_snippet, rm_tag_db, update_snippet};
 use crate::utils::fs::normalize_content;
 
 pub fn fuzzy_search<'a>(query: &str, snippets: &'a [Snippet]) -> Vec<&'a Snippet> {

@@ -24,8 +24,8 @@ pub use snippets::manager::*;
 use crate::cli::execute::filter_snippets;
 use crate::ffi::utils::FFISnippet;
 use crate::integration::git::{nibb_git_post_actions, nibb_git_pre_actions};
-use crate::snippets::storage::{delete_snippet, get_snippet, init_nibb_db, list_snippets, update_snippet};
-use crate::utils::fs::{get_storage_path, normalize_content};
+use crate::snippets::storage::{delete_snippet, get_snippet, get_snippet_by_name, init_nibb_db, list_snippets, update_snippet};
+use crate::utils::fs::{normalize_content};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ffi_list_snippets(tags_csv: *const c_char) -> *mut c_char {
@@ -52,6 +52,7 @@ pub extern "C" fn ffi_list_snippets(tags_csv: *const c_char) -> *mut c_char {
         Ok(snippets) => {
             let snippets = filter_snippets(&snippets, tags_opt);
             let ffi_snippets: Vec<FFISnippet> = snippets.into_iter().map(|s| FFISnippet {
+                id: s.id,
                 name: s.name.clone(),
                 content: normalize_content(&s.content),
                 description: s.description.clone().unwrap_or("Empty".to_string()),
@@ -100,6 +101,7 @@ pub extern "C" fn ffi_new_snippet(
     let result = match new_snippet(name_str.to_string(), tags_opt, &mut conn) {
         Ok(snippet) => {
             let ffi_snippet = FFISnippet {
+                id: snippet.id,
                 name: name_str.to_string(),
                 content: snippet.content,
                 description: snippet.description.unwrap_or("Empty".to_string()),
@@ -114,26 +116,20 @@ pub extern "C" fn ffi_new_snippet(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn ffi_delete_snippet(name: *const c_char) -> bool {
-    if name.is_null() { return false; }
-    let name = unsafe {
-        match CStr::from_ptr(name).to_str() {
-            Ok(s) => s,
-            Err(_) => return false,
-        }
-    };
+pub extern "C" fn ffi_delete_snippet(id: i32) -> bool {
+
     let mut conn = match init_nibb_db() {
         Ok(c) => c,
         Err(_) => return false,
     };
-    match delete_snippet(&mut conn, name) {
+    match delete_snippet(&mut conn, id) {
         Ok(_) => true,
         Err(_) => false,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn ffi_get_snippet(name: *const c_char) -> *mut c_char {
+pub extern "C" fn ffi_get_snippet_by_name(name: *const c_char) -> *mut c_char {
     let name_str = unsafe {
         if name.is_null() {
             return std::ptr::null_mut();
@@ -148,7 +144,27 @@ pub extern "C" fn ffi_get_snippet(name: *const c_char) -> *mut c_char {
         Err(_) => return std::ptr::null_mut(),
     };
 
-    let snippet = match get_snippet(&conn, name_str) {
+    let snippet = match get_snippet_by_name(&conn, name_str) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    match serde_json::to_string(&snippet) {
+        Ok(s) => CString::new(s).unwrap().into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_get_snippet(id: i32) -> *mut c_char {
+
+    let conn = match init_nibb_db() {
+        Ok(c) => c,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let snippet = match get_snippet(&conn, id) {
         Ok(s) => s,
         Err(_) => return std::ptr::null_mut(),
     };
@@ -160,16 +176,12 @@ pub extern "C" fn ffi_get_snippet(name: *const c_char) -> *mut c_char {
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn ffi_update_snippet(
-    old_name: *const c_char,
+    id: i32,
     new_name: *const c_char,
     content: *const c_char,
     description: *const c_char,
     tags_json: *const c_char,
 ) -> bool {
-    let old_name = match c_str_to_str(old_name) {
-        Some(s) => s.to_string(),
-        None => return false,
-    };
     let new_name = match c_str_to_str(new_name) {
         Some(s) => s.to_string(),
         None => return false,
@@ -207,10 +219,10 @@ pub extern "C" fn ffi_update_snippet(
         name: new_name,
         content,
         description: Some(description),
-        path: get_storage_path().unwrap().to_str().unwrap().to_string(),
         tags,
+        id,
     };
-    match update_snippet(&mut conn, &snippet, &old_name) {
+    match update_snippet(&mut conn, &snippet,id) {
         Ok(_) => true,
         Err(_) => false,
     }

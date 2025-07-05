@@ -7,7 +7,7 @@ use rusqlite::Connection;
 use crate::config::settings::Settings;
 use crate::errors::NibbError;
 use crate::snippets::snippet::Snippet;
-use crate::snippets::storage::get_snippet;
+use crate::snippets::storage::{get_snippet, get_snippet_by_name};
 use crate::utils::fs::get_nibb_dir;
 
 pub fn nibb_git(command: Vec<String>, verbose: bool) -> Result<(), NibbError> {
@@ -58,7 +58,6 @@ pub fn format_commit_message(message: &str, snippet: &Snippet) -> String {
     let tags = snippet.tags.iter().map(|s| s.to_string()).collect::<Vec<String>>();
     msg = msg.replace("{tags}", &tags.join(", "));
     msg = msg.replace("{description}", snippet.description.clone().unwrap_or("".to_string()).as_str());
-    msg = msg.replace("{path}", &snippet.path);
     msg
 }
 
@@ -97,12 +96,12 @@ pub fn nibb_git_post_actions(
     if !cfg.git_enabled() {
         return Ok(())   
     }
-    let snippet = get_snippet(conn, name).unwrap_or(Snippet::new(
+    let snippet = get_snippet_by_name(conn, name).unwrap_or(Snippet::new(
         name.to_string(),
         "".to_string(),
         HashSet::new(),
         None,
-        "".to_string()
+        0,
     ));
     
     if cfg.auto_commit() {

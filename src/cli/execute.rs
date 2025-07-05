@@ -2,6 +2,7 @@
 
 use crate::cli::command::{Commands, ConfigOp, NibbCli, Position, TagOp};
 use anyhow::{Context, Result};
+#[cfg(feature = "ansi")]
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use rusqlite::Connection;
@@ -21,7 +22,7 @@ use crate::snippets::manager::{
 };
 use crate::snippets::snippet::Snippet;
 use crate::snippets::manager::insert_to_file_marker;
-use crate::snippets::storage::{delete_snippet, export_snippets, get_snippet, init_nibb_db, list_snippets, update_snippet};
+use crate::snippets::storage::{delete_snippet, export_snippets, get_snippet_by_name, init_nibb_db, list_snippets, update_snippet};
 use crate::utils::clipboard::paste_from_clipboard;
 use crate::utils::ui::{print_snippet_list};
 
@@ -62,12 +63,12 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             new_snippet(name.clone(), tags, &mut conn)?;
             if clip {
                 let content = paste_from_clipboard()?;
-                let mut snippet = get_snippet(&conn, &name)?;
+                let mut snippet = get_snippet_by_name(&conn, &name)?;
                 snippet.content = content;
             }
             if file.is_some() {
                 let content = std::fs::read_to_string(&file.unwrap())?;
-                let mut snippet = get_snippet(&conn, &name)?;
+                let mut snippet = get_snippet_by_name(&conn, &name)?;
                 snippet.content = content;
             }
         }
@@ -84,7 +85,8 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
         }
         Commands::Delete {name} => {
             changed = Some(name.clone());
-            delete_snippet(&mut conn, &name)?;       
+            let snippet = get_snippet_by_name(&conn, &name)?;
+            delete_snippet(&mut conn, snippet.id)?;
         }
         Commands::Insert {name, file, at} => {
             if !cli.quiet {println!("Insert {} at {} in {}", name, at, file);}
@@ -111,10 +113,10 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
         Commands::Edit {name, clip} => {
             changed = Some(name.clone());
             let editor = cfg.editor();
-            let mut snippet = get_snippet(&conn, &name)?;
+            let mut snippet = get_snippet_by_name(&conn, &name)?;
+            let id = snippet.id;
             edit_snippet(&mut snippet, editor, clip)?;
-            let name = &snippet.name;
-            update_snippet(&mut conn, &snippet, name)?;
+            update_snippet(&mut conn, &snippet, id)?;
         }
         Commands::Config {op} => {
             match op { 

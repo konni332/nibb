@@ -13,7 +13,7 @@ pub struct Snippet {
     pub content: String,
     pub tags: HashSet<String>,
     pub description: Option<String>,
-    pub path: String,
+    pub id: i32,
 }
 
 impl Snippet {
@@ -22,26 +22,25 @@ impl Snippet {
         content: String,
         tags: HashSet<String>,
         description: Option<String>,
-        path: String,
+        id: i32,
     ) -> Snippet {
         Snippet {
             name,
             content,
             tags,
             description,
-            path,       
+            id,
         }
     }
     pub fn create(name: String, tags: Option<Vec<String>>) -> Snippet {
         let hashed_tags = HashSet::from_iter(tags.unwrap_or_default());
-        let path = get_snippets_dir().expect("Unable to get snippets dir").join(&name);
-        
+
         Snippet::new(
             name,
             String::new(),
             hashed_tags,
             None,
-            path.to_str().unwrap().to_string(),       
+            0,
         )
     }
     #[cfg(feature = "ansi")]
@@ -87,7 +86,7 @@ impl Snippet {
 
         println!("    {}:", self.name.clone());
         if verbose {
-            println!("      {} {}", "path", self.path);
+            println!("      {} {}", "id", self.id);
         }
         if let Some(description) = &self.description {
             println!("        {} {}", "description:", description);

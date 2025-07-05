@@ -31,21 +31,15 @@ pub fn import_snippets(name: Option<String>) -> Result<Vec<Snippet>, NibbError> 
     Ok(snippets)
 }
 
-pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, name: &str) -> Result<(), NibbError> {
+pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, id: i32) -> Result<(), NibbError> {
     let tx = conn.transaction()?;
 
     tx.execute(
-        "UPDATE snippets SET name = ?1, content = ?2, description = ?3 WHERE name = ?4",
-        params![snippet.name, snippet.content, snippet.description, name],
+        "UPDATE snippets SET name = ?1, content = ?2, description = ?3 WHERE id = ?4",
+        params![snippet.name, snippet.content, snippet.description, id],
     )?;
 
-    let snippet_id: i64 = tx.query_row(
-        "SELECT id FROM snippets WHERE name = ?1",
-        params![snippet.name],
-        |row| row.get(0),
-    )?;
-
-    tx.execute("DELETE FROM snippets_tags WHERE snippet_id = ?1", params![snippet_id])?;
+    tx.execute("DELETE FROM snippets_tags WHERE snippet_id = ?1", params![id])?;
 
     for tag in &snippet.tags {
         tx.execute("INSERT OR IGNORE INTO tags (name) VALUES (?1)", params![tag])?;
@@ -58,7 +52,7 @@ pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, name: &str) -> R
 
         tx.execute(
             "INSERT OR IGNORE INTO snippets_tags (snippet_id, tag_id) VALUES (?1, ?2)",
-            params![snippet_id, tag_id],
+            params![id, tag_id],
         )?;
     }
 
@@ -67,18 +61,12 @@ pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, name: &str) -> R
 }
 
 
-pub fn delete_snippet(conn: &mut Connection, name: &str) -> Result<(), NibbError> {
+pub fn delete_snippet(conn: &mut Connection, id: i32) -> Result<(), NibbError> {
     let tx = conn.transaction()?;
 
-    let snippet_id: i64 = tx.query_row(
-        "SELECT id FROM snippets WHERE name = ?1",
-        params![name],
-        |row| row.get(0),
-    )?;
+    tx.execute("DELETE FROM snippets_tags WHERE snippet_id = ?1", params![id])?;
 
-    tx.execute("DELETE FROM snippets_tags WHERE snippet_id = ?1", params![snippet_id])?;
-
-    tx.execute("DELETE FROM snippets WHERE id = ?1", params![snippet_id])?;
+    tx.execute("DELETE FROM snippets WHERE id = ?1", params![id])?;
 
     tx.commit()?;
     Ok(())
@@ -118,8 +106,6 @@ pub fn list_snippets(conn: &Connection, tags: Option<&[String]>) -> Result<Vec<S
         params.push(&tag_count);
     }
 
-    let path = get_storage_path()?;
-
     let snippet_rows = stmt.query_map(&params[..], |row| {
         Ok((
             row.get::<_, i64>(0)?, // id
@@ -127,7 +113,7 @@ pub fn list_snippets(conn: &Connection, tags: Option<&[String]>) -> Result<Vec<S
                 name: row.get(1)?,
                 content: row.get(2)?,
                 description: row.get(3)?,
-                path: String::from(path.to_string_lossy()),
+                id: row.get(0)?,
                 tags: HashSet::new(),
             }
         ))
@@ -171,15 +157,47 @@ pub fn insert_snippet(conn: &mut Connection, snippet: &Snippet) -> Result<(), Ni
     Ok(())
 }
 
-pub fn get_snippet(conn: &Connection, name: &str) -> Result<Snippet, NibbError> {
+pub fn get_snippet(conn: &Connection, id: i32) -> Result<Snippet, NibbError> {
     let mut stmt = conn.prepare(
-        "SELECT content, description FROM snippets WHERE name = ?1"
+        "SELECT name, content, description FROM snippets WHERE id = ?1"
+    )?;
+    let mut rows = stmt.query(params![id])?;
+    let row = rows.next()?.ok_or_else(|| NibbError::NotFound(id.to_string()))?;
+    let name = row.get(0)?;
+    let content: String = row.get(1)?;
+    let description: Option<String> = row.get(2)?;
+    let mut tag_stmt = conn.prepare(
+        "
+        SELECT tags.name
+        FROM tags
+        INNER JOIN snippets_tags ON tags.id = snippets_tags.tag_id
+        INNER JOIN snippets ON snippets.id = snippets_tags.snippet_id
+        WHERE snippets.name = ?1
+        "
+    )?;
+    let tag_iter = tag_stmt
+        .query_map(params![name], |row| {row.get(0)})?;
+
+    let tags: HashSet<String> = tag_iter.filter_map(|r| r.ok()).collect();
+    Ok(Snippet {
+        name,
+        content,
+        description,
+        id,
+        tags,
+    })
+}
+
+
+pub fn get_snippet_by_name(conn: &Connection, name: &str) -> Result<Snippet, NibbError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, content, description FROM snippets WHERE name = ?1"
     )?;
     let mut rows = stmt.query(params![name])?;
     let row = rows.next()?.ok_or_else(|| NibbError::NotFound(name.to_string()))?;
-    let content: String = row.get(0)?;
-    let description: Option<String> = row.get(1)?;
-    let path = get_storage_path()?.to_str().unwrap().to_string();
+    let id = row.get(0)?;
+    let content: String = row.get(1)?;
+    let description: Option<String> = row.get(2)?;
     let mut tag_stmt = conn.prepare(
         "
         SELECT tags.name
@@ -197,11 +215,10 @@ pub fn get_snippet(conn: &Connection, name: &str) -> Result<Snippet, NibbError> 
         name: name.to_string(),
         content,
         description,
-        path,
+        id,
         tags,
     })
 }
-
 
 pub fn init_nibb_db() -> Result<Connection, NibbError> {
     let db_path = get_storage_path()?;

@@ -5,6 +5,7 @@ use crate::snippets::storage::{init_nibb_db, list_snippets};
 
 #[derive(Serialize)]
 pub struct FFISnippet {
+    pub id: i32,
     pub name: String,
     pub content: String,
     pub description: String,
