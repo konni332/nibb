@@ -23,6 +23,7 @@ pub use integration::utils::extern_setup;
 pub use snippets::manager::*;
 use crate::cli::execute::filter_snippets;
 use crate::ffi::utils::FFISnippet;
+use crate::integration::git::{nibb_git_post_actions, nibb_git_pre_actions};
 use crate::snippets::storage::{delete_snippet, get_snippet, init_nibb_db, list_snippets, update_snippet};
 use crate::utils::fs::{get_storage_path, normalize_content};
 
@@ -215,6 +216,63 @@ pub extern "C" fn ffi_update_snippet(
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_fuzzy_search(query: *const c_char) -> *mut c_char {
+    let c_str = unsafe {
+        assert!(!query.is_null());
+        CStr::from_ptr(query)
+    };
+    let query = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let conn = match init_nibb_db() {
+        Ok(c) => c,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let snippets = match list_snippets(&conn, None) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let found = fuzzy_search(&query, &snippets);
+    match serde_json::to_string(&found) {
+        Ok(s) => CString::new(s).unwrap().into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_git_post_actions(name: *const c_char) -> i32 {
+    let c_str = unsafe { CStr::from_ptr(name) };
+    let snippet_name = c_str.to_str().unwrap_or("");
+    match extern_setup() {
+        Ok(cfg) => {
+            let conn = match init_nibb_db() {
+                Ok(c) => c,
+                Err(_) => return 1,
+            };
+            match nibb_git_post_actions(snippet_name, &conn, &cfg) {
+                Ok(_) => 0,
+                Err(_) => 1,
+            }
+        }
+        Err(_) => 1,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_git_pre_actions() -> i32 {
+    match extern_setup() {
+        Ok(cfg) => {
+            match nibb_git_pre_actions(&cfg) {
+                Ok(_) => 0,
+                Err(_) => 1,
+            }
+        },
+        Err(_) => 1,
+    }
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn nibb_free_string(s: *mut c_char) {
