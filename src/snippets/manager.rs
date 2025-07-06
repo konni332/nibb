@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::snippets::snippet::Snippet;
+use crate::snippets::snippet::{Lang, Snippet};
 use crate::utils::clipboard::copy_to_clipboard;
 use std::fs::{self};
 use std::process::Command;
@@ -70,9 +70,10 @@ pub fn rename_snippet(old_name: String, new_name: String, conn: &mut Connection)
 pub fn new_snippet(
     name: String,
     tags: Option<Vec<String>>,
+    lang: Lang,
     conn: &mut Connection
 ) -> Result<Snippet, NibbError> {
-    let snippet = Snippet::create(name, tags);
+    let snippet = Snippet::create(name, tags, lang);
     insert_snippet(conn, &snippet)?;
     Ok(snippet)
 }
@@ -132,11 +133,12 @@ pub fn fuzzy_search<'a>(query: &str, snippets: &'a [Snippet]) -> Vec<&'a Snippet
         .iter()
         .filter_map(|snippet| {
             let haystack = format!(
-                "{} {} {:?} {:?}",
+                "{} {} {:?} {:?} {}",
                 snippet.name,
                 snippet.content,
                 snippet.description,
-                snippet.tags
+                snippet.tags,
+                snippet.lang,
             );
             matcher.fuzzy_match(&haystack, query).map(|score| (snippet, score))
         })

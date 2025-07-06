@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use rusqlite::{params, Connection};
 use crate::errors::NibbError;
-use crate::snippets::snippet::Snippet;
+use crate::snippets::snippet::{Lang, Snippet};
 use crate::utils::fs::{get_nibb_backups_dir, get_storage_path};
 
 
@@ -35,8 +35,8 @@ pub fn update_snippet(conn: &mut Connection, snippet: &Snippet, id: i32) -> Resu
     let tx = conn.transaction()?;
 
     tx.execute(
-        "UPDATE snippets SET name = ?1, content = ?2, description = ?3 WHERE id = ?4",
-        params![snippet.name, snippet.content, snippet.description, id],
+        "UPDATE snippets SET name = ?1, content = ?2, description = ?3, lang = ?4 WHERE id = ?5",
+        params![snippet.name, snippet.content, snippet.description, snippet.lang.to_string(), id],
     )?;
 
     tx.execute("DELETE FROM snippets_tags WHERE snippet_id = ?1", params![id])?;
@@ -71,84 +71,85 @@ pub fn delete_snippet(conn: &mut Connection, id: i32) -> Result<(), NibbError> {
     tx.commit()?;
     Ok(())
 }
-pub fn list_snippets(conn: &Connection, tags: Option<&[String]>) -> Result<Vec<Snippet>, NibbError> {
-    let mut snippets = Vec::new();
+pub fn list_snippets(conn: &Connection) -> Result<Vec<Snippet>, NibbError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, content, description, lang FROM snippets"
+    )?;
 
-    let mut stmt = if let Some(tags) = tags {
-        let placeholders = vec!["?"; tags.len()].join(",");
-        conn.prepare(&format!(
-            "
-            SELECT DISTINCT s.id, s.name, s.content, s.description, s.path
-            FROM snippets s
-            JOIN snippets_tags st ON s.id = st.snippet_id
-            JOIN tags t ON st.tag_id = t.id
-            WHERE t.name IN ({})
-            GROUP BY s.id
-            HAVING COUNT(DISTINCT t.name) = ?
-            ", placeholders
-        ))?
-    } else {
-        conn.prepare(
-            "
-            SELECT s.id, s.name, s.content, s.description
-            FROM snippets s
-            "
-        )?
-    };
+    let snippet_rows = stmt.query_map([], |row| {
+        let id: i32 = row.get(0)?;
+        let name: String = row.get(1)?;
+        let content: String = row.get(2)?;
+        let description: Option<String> = row.get(3)?;
+        let lang_str: String = row.get(4)?;
+        let lang = Lang::from(lang_str.as_str());       
 
-    let mut params: Vec<&dyn rusqlite::ToSql> = vec![];
-    let tag_count: i64;
-    if let Some(t) = tags {
-        for tag in t {
-            params.push(tag as &dyn rusqlite::ToSql);
-        }
-        tag_count = t.len() as i64;
-        params.push(&tag_count);
-    }
 
-    let snippet_rows = stmt.query_map(&params[..], |row| {
-        Ok((
-            row.get::<_, i64>(0)?, // id
-            Snippet {
-                name: row.get(1)?,
-                content: row.get(2)?,
-                description: row.get(3)?,
-                id: row.get(0)?,
-                tags: HashSet::new(),
-            }
-        ))
+        Ok((id, name, content, description, lang))
     })?;
 
-    for row in snippet_rows {
-        let (id, mut snippet) = row?;
+    let mut snippets = Vec::new();
+
+    for row_result in snippet_rows {
+        let (id, name, content, description, lang) = row_result?;
+
         let mut tag_stmt = conn.prepare(
             "
-            SELECT t.name
-            FROM tags t
-            JOIN snippets_tags st ON t.id = st.tag_id
-            WHERE st.snippet_id = ?
+            SELECT tags.name
+            FROM tags
+            INNER JOIN snippets_tags ON tags.id = snippets_tags.tag_id
+            WHERE snippets_tags.snippet_id = ?
             "
         )?;
-        let tag_iter = tag_stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
 
-        for tag in tag_iter {
-            snippet.tags.insert(tag?);
+        let tags_iter = tag_stmt.query_map(params![id], |tag_row| {
+            let tag: String = tag_row.get(0)?;
+            Ok(tag)
+        })?;
+
+        let mut tags = HashSet::new();
+        for tag in tags_iter {
+            tags.insert(tag?);
         }
 
-        snippets.push(snippet);
+        snippets.push(Snippet {
+            id,
+            name,
+            content,
+            description,
+            tags,
+            lang,
+        });
     }
-
     Ok(snippets)
 }
 
+pub fn filter_snippets(snippets: Vec<Snippet>, filter: Option<String>) -> Vec<Snippet> {
+    let filter = filter.unwrap_or_default();
+    if filter.is_empty() {
+        return snippets;       
+    }
+    let mut filtered = Vec::new();
+    for snippet in snippets {
+        if snippet.name.contains(&filter)
+        || snippet.content.contains(&filter)
+        || snippet.tags.contains(&filter)
+        || snippet.lang.to_string().contains(&filter)       
+        {
+            filtered.push(snippet);
+        }
+        
+    }
+    filtered
+}
 
 
 pub fn insert_snippet(conn: &mut Connection, snippet: &Snippet) -> Result<(), NibbError> {
     let tx = conn.transaction()?;
 
     tx.execute(
-        "INSERT INTO snippets (name, content, description) VALUES (?1, ?2, ?3)",
-        params![snippet.name, snippet.content, snippet.description]
+        "INSERT INTO snippets (name, content, description, lang) VALUES (?1, ?2, ?3, ?4)",
+        params![snippet.name, snippet.content, snippet.description, snippet.lang.to_string()]
     )?;
     tx.commit()?;
     for tag in &snippet.tags {
@@ -159,13 +160,15 @@ pub fn insert_snippet(conn: &mut Connection, snippet: &Snippet) -> Result<(), Ni
 
 pub fn get_snippet(conn: &Connection, id: i32) -> Result<Snippet, NibbError> {
     let mut stmt = conn.prepare(
-        "SELECT name, content, description FROM snippets WHERE id = ?1"
+        "SELECT name, content, description, lang FROM snippets WHERE id = ?1"
     )?;
     let mut rows = stmt.query(params![id])?;
     let row = rows.next()?.ok_or_else(|| NibbError::NotFound(id.to_string()))?;
     let name = row.get(0)?;
     let content: String = row.get(1)?;
     let description: Option<String> = row.get(2)?;
+    let lang_str: String = row.get(3)?;
+    let lang: Lang = Lang::from(lang_str.as_str());
     let mut tag_stmt = conn.prepare(
         "
         SELECT tags.name
@@ -185,19 +188,22 @@ pub fn get_snippet(conn: &Connection, id: i32) -> Result<Snippet, NibbError> {
         description,
         id,
         tags,
+        lang,
     })
 }
 
 
 pub fn get_snippet_by_name(conn: &Connection, name: &str) -> Result<Snippet, NibbError> {
     let mut stmt = conn.prepare(
-        "SELECT id, content, description FROM snippets WHERE name = ?1"
+        "SELECT id, content, description, lang FROM snippets WHERE name = ?1"
     )?;
     let mut rows = stmt.query(params![name])?;
     let row = rows.next()?.ok_or_else(|| NibbError::NotFound(name.to_string()))?;
     let id = row.get(0)?;
     let content: String = row.get(1)?;
     let description: Option<String> = row.get(2)?;
+    let lang_str: String = row.get(3)?;
+    let lang = Lang::from(lang_str.as_str());
     let mut tag_stmt = conn.prepare(
         "
         SELECT tags.name
@@ -217,6 +223,7 @@ pub fn get_snippet_by_name(conn: &Connection, name: &str) -> Result<Snippet, Nib
         description,
         id,
         tags,
+        lang,
     })
 }
 
@@ -229,7 +236,8 @@ pub fn init_nibb_db() -> Result<Connection, NibbError> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             content TEXT,
-            description TEXT
+            description TEXT,
+            lang TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS tags (

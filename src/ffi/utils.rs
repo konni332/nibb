@@ -10,5 +10,6 @@ pub struct FFISnippet {
     pub content: String,
     pub description: String,
     pub tags: Vec<String>,
+    pub lang: String,
 }
 

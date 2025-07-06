@@ -20,9 +20,9 @@ use crate::snippets::manager::{
     add_tag,
     fuzzy_search,
 };
-use crate::snippets::snippet::Snippet;
+use crate::snippets::snippet::{Lang};
 use crate::snippets::manager::insert_to_file_marker;
-use crate::snippets::storage::{delete_snippet, export_snippets, get_snippet_by_name, init_nibb_db, list_snippets, update_snippet};
+use crate::snippets::storage::{delete_snippet, export_snippets, filter_snippets, get_snippet_by_name, init_nibb_db, list_snippets, update_snippet};
 use crate::utils::clipboard::paste_from_clipboard;
 use crate::utils::ui::{print_snippet_list};
 
@@ -55,12 +55,14 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
     let mut changed: Option<String> = None;
     let mut conn = init_nibb_db()?;
     match cli.command {
-        Commands::New { name, tags, clip, file } => {
+        Commands::New { name, tags, clip, file, lang } => {
+            let lang = Lang::from(lang.unwrap_or("".to_string()).as_str());
+            
             changed = Some(name.clone());
             if !cli.quiet {
                 println!("Create {:?} {:?}", name, tags.clone().unwrap_or(vec![]));
             }
-            new_snippet(name.clone(), tags, &mut conn)?;
+            new_snippet(name.clone(), tags, lang, &mut conn)?;
             if clip {
                 let content = paste_from_clipboard()?;
                 let mut snippet = get_snippet_by_name(&conn, &name)?;
@@ -72,10 +74,14 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
                 snippet.content = content;
             }
         }
-        Commands::List { tags } => {
-            let snippets = list_snippets(&conn, None)?;
-            let snippets = filter_snippets(&snippets, tags);
-            print_snippet_list(&snippets, cli.verbose);
+        Commands::List { filter } => {
+            let snippets = list_snippets(&conn)?;
+            let snippets =  filter_snippets(snippets, filter);
+            let mut list_print = Vec::new();
+            for snippet in &snippets {
+                list_print.push(snippet);
+            }
+            print_snippet_list(&list_print, cli.verbose);
             return Ok(()) // nothing was modified, no saves to disk necessary
         }
         Commands::Rename {old_name, new_name} => {
@@ -139,16 +145,16 @@ pub fn execute(cli: NibbCli, mut cfg: Settings) -> Result<()>{
             return Ok(());
         }
         Commands::Fuzz { query } => {
-            let snippets = list_snippets(&conn, None)?;
+            let snippets = list_snippets(&conn)?;
             let found = fuzzy_search(&query, &snippets);
-            print_snippet_list(found.as_slice(), cli.verbose);
+            print_snippet_list(&found, cli.verbose);
         }
         Commands::Git { git_args } => {
             nibb_git(git_args, true)?; // direct git commands should always be verbose!
         }
         Commands::Export { file_name, pretty } => {
             changed = Some(String::from("backup"));
-            let snippets = list_snippets(&conn, None)?;
+            let snippets = list_snippets(&conn)?;
             export_snippets(&snippets, file_name, pretty)?;
         }
     }
@@ -184,15 +190,4 @@ pub fn insert_snippet(
         },
     }
     Ok(())
-}
-
-pub fn filter_snippets(snippets: &[Snippet], tags: Option<Vec<String>>) -> Vec<&Snippet> {
-    let mut filtered = Vec::new();
-    let tags = tags.unwrap_or(vec![]);
-    for snippet in snippets {
-        if tags.is_empty() || snippet.tags.iter().any(|t| tags.contains(t)){
-            filtered.push(snippet);
-        }
-    }
-    filtered
 }

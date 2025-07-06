@@ -25,6 +25,8 @@ pub enum Commands{
         clip: bool,
         #[clap(short, long, conflicts_with = "clip")]
         file: Option<String>,
+        #[clap(long)]
+        lang: Option<String>,
     },
     /// Insert a snippet at the specified position
     Insert {
@@ -51,7 +53,7 @@ pub enum Commands{
     /// List all snippets that conform with the specified tags
     List {
         #[clap(short, long)]
-        tags: Option<Vec<String>>,
+        filter: Option<String>,
     },
     /// Configure Nibb
     Config {

@@ -6,8 +6,8 @@ use chrono::Local;
 use rusqlite::Connection;
 use crate::config::settings::Settings;
 use crate::errors::NibbError;
-use crate::snippets::snippet::Snippet;
-use crate::snippets::storage::{get_snippet, get_snippet_by_name};
+use crate::snippets::snippet::{Lang, Snippet};
+use crate::snippets::storage::{get_snippet_by_name};
 use crate::utils::fs::get_nibb_dir;
 
 pub fn nibb_git(command: Vec<String>, verbose: bool) -> Result<(), NibbError> {
@@ -102,6 +102,7 @@ pub fn nibb_git_post_actions(
         HashSet::new(),
         None,
         0,
+        Lang::Unknown,
     ));
     
     if cfg.auto_commit() {
