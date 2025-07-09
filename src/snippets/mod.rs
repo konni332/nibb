@@ -1,3 +1,4 @@
-pub mod manager;
 pub mod snippet;
-pub mod storage;
+pub mod repo;
+pub mod utils;
+pub mod file_type;

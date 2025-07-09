@@ -1,25 +1,11 @@
 use clap::Parser;
-use anyhow::{Context, Result};
-use crate::cli::command::NibbCli;
-use crate::cli::execute::execute;
-use crate::config::settings::Settings;
-use crate::utils::fs::ensure_nibb_structure;
+use anyhow::Result;
+use nibb_core::Arguments;
+use nibb_core::execute_cli;
 
-mod cli;
-mod snippets;
-mod utils;
-mod config;
-mod integration;
-mod errors;
 
 fn main() -> Result<()>{
-    // parse command line input
-    let cli = NibbCli::parse();
-    // ensure the necessary files and directories are in place
-    ensure_nibb_structure().with_context(|| "Failed to ensure nibb structure")?;
-    // load config
-    let cfg = Settings::load().with_context(|| "Failed to load config")?;
-    // execute commands
-    execute(cli, cfg)
+    let cli = Arguments::parse();
+    execute_cli(cli)
 }
 

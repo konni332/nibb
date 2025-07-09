@@ -1,2 +1,2 @@
-pub mod command;
-pub mod execute;
+pub mod arguments;
+pub mod cli;
