@@ -70,6 +70,30 @@ pub extern "C" fn save_snippet_ffi(snippet_json: *const c_char) -> bool {
     }
 }
 
+/// Deletes a snippet from the repo
+///
+/// # Arguments
+/// - `name`: A Null terminated C String of the snippets' name.
+///
+/// # Returns
+/// - `true` if the snippet was deleted successfully.
+/// - `false` if an error occurred.
+///
+/// # Safety
+/// - `name` needs to be a valid, null-terminated, UTF-8 string.
+#[unsafe(no_mangle)]
+pub extern "C" fn delete_snippet_ffi(name: *const c_char) -> bool {
+    let repo = match FSRepo::new(get_nibb_dir().unwrap()) {
+        Ok(repo) => repo,
+        Err(_) => return false
+    };
+    let name = str_from_c_str(name);
+    match repo.delete(&name) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
 /// Loads all snippets from the repository and returns them as a JSON array.
 ///
 /// # Returns

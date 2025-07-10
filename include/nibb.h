@@ -38,6 +38,21 @@ char *load_snippet_ffi(const char *name);
 bool save_snippet_ffi(const char *snippet_json);
 
 /**
+ * Deletes a snippet from the repo
+ *
+ * # Arguments
+ * - `name`: A Null terminated C String of the snippets' name.
+ *
+ * # Returns
+ * - `true` if the snippet was deleted successfully.
+ * - `false` if an error occurred.
+ *
+ * # Safety
+ * - `name` needs to be a valid, null-terminated, UTF-8 string.
+ */
+bool delete_snippet_ffi(const char *name);
+
+/**
  * Loads all snippets from the repository and returns them as a JSON array.
  *
  * # Returns
