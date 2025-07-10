@@ -149,6 +149,8 @@ impl FileType {
     ///
     /// # Examples
     /// ```rust
+    /// use nibb_core::FileType;
+    ///
     /// assert_eq!(FileType::Rust.extension(), "rs");
     /// assert_eq!(FileType::Markdown.extension(), "md");
     /// ```
@@ -228,7 +230,7 @@ impl FileType {
     /// # Examples
     ///
     /// ```rust
-    /// use crate::FileType;
+    /// use nibb_core::FileType;
     ///
     /// assert_eq!(FileType::from_extension("rs"), FileType::Rust);
     /// assert_eq!(FileType::from_extension(".py"), FileType::Python);

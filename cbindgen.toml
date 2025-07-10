@@ -1,0 +1,14 @@
+language = "C"
+
+include_version = true
+
+[parse]
+expand = ["all"]
+
+[export]
+include = []
+
+[defines]
+"target_os = linux" = "LINUX"
+"target_os = windows" = "WINDOWS"
+"target_os = macos" = "MACOS"
