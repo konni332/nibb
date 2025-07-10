@@ -1,8 +1,8 @@
 use clap::Parser;
 use anyhow::Result;
-use nibb_core::Arguments;
-use nibb_core::execute_cli;
-
+mod cli;
+use crate::cli::cli::execute_cli;
+use crate::cli::arguments::Arguments;
 
 fn main() -> Result<()>{
     let cli = Arguments::parse();

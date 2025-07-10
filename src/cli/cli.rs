@@ -1,12 +1,11 @@
-use crate::cli::arguments::{Arguments, NibbCommand};
+use crate::cli::arguments::{Arguments, NibbCommand, SnippetKey};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
+#[cfg(feature = "ansi")]
 use colored::Colorize;
-use crate::fs::get_nibb_dir;
-use crate::snippets::file_type::FileType;
-use crate::snippets::repo::{FSRepo, SnippetRepository};
-use crate::snippets::snippet::{Meta, Snippet, Visibility};
-use crate::snippets::utils::filter_snippets;
+use slug::slugify;
+use nibb_core::{get_nibb_dir, FSRepo, FileType, Meta, Snippet, SnippetRepository, Visibility};
+use nibb_core::snippets::utils::filter_snippets;
 
 pub fn execute_cli(cli_args: Arguments) -> Result<()> {
     let repo = FSRepo::new(get_nibb_dir()?).with_context(|| "Failed to create repo")?;
@@ -26,7 +25,7 @@ pub fn execute_cli(cli_args: Arguments) -> Result<()> {
             cli_list(&repo, filter, json)?;
         }
         NibbCommand::Edit {name, key, value} => {
-            println!("unimplemented");
+            cli_edit(&repo, name, key, value)?;
         }
         NibbCommand::Delete {name} => {
             repo.delete(&name)?;
@@ -91,33 +90,33 @@ fn cli_new(
         if public { Some(Visibility::Public) } else { Some(Visibility::Private) }
     );
     let new_snippet = Snippet::new(meta, content);
-    return repo.save(&new_snippet).with_context(|| format!("Failed to save snippet: {}", name))
+    repo.save(&new_snippet).with_context(|| format!("Failed to save snippet: {}", name))
 }
 
-fn cli_edit(repo: &FSRepo, name: String, key: String, value: String) -> Result<()> {
-    let mut snippet = repo.load(&name)?;
-    match key.as_str() {
-        "name" => {
-            repo.delete(&snippet.meta.name)?;
+fn cli_edit(repo: &FSRepo, name: String, key: SnippetKey, value: String) -> Result<()> {
+    let mut snippet = repo.load(slugify(&name).as_str())
+        .with_context(|| format!(
+            "Failed to load snippet: {}",
+            name
+        ))?;
+    match key {
+        SnippetKey::Name => {
             snippet.meta.name = value;
         }
-        "tags" => {
-            snippet.meta.tags = value.split(",").map(|s| s.to_string()).collect();
-        }
-        "content" => {
-            snippet.content = value;
-        }
-        "language" => {
-            snippet.meta.language = FileType::from(value.as_str());
-        },
-        "visibility" => {
-            snippet.meta.visibility = Visibility::from(value.as_str());
-        }
-        "description" => {
+        SnippetKey::Description => {
             snippet.meta.description = value;
         }
-        _ => {
-            bail!("Key not found: {}", key);
+        SnippetKey::Language => {
+            snippet.meta.language = FileType::from(value.as_str());
+        }
+        SnippetKey::Visibility => {
+            snippet.meta.visibility = Visibility::from(value.as_str());
+        }
+        SnippetKey::Tags => {
+            snippet.meta.tags = value.split(',').map(|s| s.to_string()).collect();
+        }
+        SnippetKey::Content => {
+            snippet.content = value;
         }
     }
     snippet.meta.modified = Utc::now();

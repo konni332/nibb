@@ -82,7 +82,7 @@ impl SnippetRepository for FSRepo {
     /// and deserializing each snippet from `meta.toml` and its content file.
     fn load_all(&self) -> NibbResult<Vec<Snippet>> {
         let entries = std::fs::read_dir(self.snippets_dir())
-            .map_err(|e| NibbError::NotFound("Snippets directory".to_string()))?;
+            .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), self.snippets_dir())))?;
         let mut snippets = Vec::new();
         for entry in entries {
             let entry = entry?;
@@ -95,11 +95,12 @@ impl SnippetRepository for FSRepo {
     ///
     /// Reads metadata from `meta.toml` and content from `content.<ext>`.
     fn load(&self, slug: &str) -> NibbResult<Snippet> {
-        let meta_path = self.get_meta_path(slug);
+        let slug = slugify(slug); // just to be sure
+        let meta_path = self.get_meta_path(&slug);
         let meta_str = std::fs::read_to_string(meta_path)?;
         let meta: Meta = toml::from_str(&meta_str)?;
 
-        let content_path = self.get_content_path(slug, &meta.get_content_extension());
+        let content_path = self.get_content_path(&slug, &meta.get_content_extension());
         let content = std::fs::read_to_string(content_path)?;
         Ok(Snippet {
             meta,
@@ -144,7 +145,8 @@ impl SnippetRepository for FSRepo {
     }
     /// Deletes the snippet directory and all its contents.
     fn delete(&self, slug: &str) -> NibbResult<()> {
-        let snippet_path = self.snippet_path(slug);
+        let slug = slugify(slug); // just to be sure
+        let snippet_path = self.snippet_path(&slug);
         std::fs::remove_dir_all(snippet_path)?;
         Ok(())
     }

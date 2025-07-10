@@ -1,17 +1,12 @@
 pub mod snippets;
 mod result;
-mod fs;
-mod cli;
+pub mod fs;
 pub mod ffi;
-
-// === CLI ===
-// ---
-pub use cli::cli::execute_cli;
-pub use cli::arguments::Arguments;
-// ---
 
 // === Lib ===
 // ---
+pub use fs::get_nibb_dir;
+
 pub use snippets::repo::{FSRepo, SnippetRepository};
 
 pub use snippets::snippet::{Meta, Visibility, Snippet};
