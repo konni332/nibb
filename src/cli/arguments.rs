@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 name = "nibb",
 about = "A simple and easy snippet engine. Written in Rust.",
 author = "konni332",
-version = "0.1.0",
+version = "0.4.0",
 )]
 pub struct Arguments {
     #[clap(subcommand)]
