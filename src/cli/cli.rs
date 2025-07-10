@@ -36,7 +36,7 @@ pub fn execute_cli(cli_args: Arguments) -> Result<()> {
 
 fn cli_list(repo: &FSRepo, filter: Option<String>, json: bool) -> Result<()> {
     let snippets = filter_snippets(
-        repo.load_all()?,
+        repo.load_all().with_context(|| "Failed to load snippets")?,
         &filter.unwrap_or("".to_string())
     );
     if json {

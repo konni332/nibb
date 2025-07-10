@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 /// - Binary: binary file (e.g., `.exe`)
 /// - Unknown: fallback type if no match is found
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FileType {
     Rust,
     C,
@@ -69,6 +70,7 @@ pub enum FileType {
 
     TextPlain,
     Binary,
+    #[serde(other)]
     Unknown,
 }
 

@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 use slug::slugify;
 use crate::result::{NibbError, NibbResult};
@@ -85,7 +86,7 @@ impl SnippetRepository for FSRepo {
             .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), self.snippets_dir())))?;
         let mut snippets = Vec::new();
         for entry in entries {
-            let entry = entry?;
+            let entry = entry.map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), self.snippets_dir())))?;
             let slug = slugify(entry.file_name().to_str().unwrap());
             snippets.push(self.load(&slug)?);
         }
@@ -97,11 +98,14 @@ impl SnippetRepository for FSRepo {
     fn load(&self, slug: &str) -> NibbResult<Snippet> {
         let slug = slugify(slug); // just to be sure
         let meta_path = self.get_meta_path(&slug);
-        let meta_str = std::fs::read_to_string(meta_path)?;
-        let meta: Meta = toml::from_str(&meta_str)?;
+        let meta_str = std::fs::read_to_string(&meta_path)
+            .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &meta_path)))?;
+        let meta: Meta = toml::from_str(&meta_str)
+            .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &meta_path)))?;
 
         let content_path = self.get_content_path(&slug, &meta.get_content_extension());
-        let content = std::fs::read_to_string(content_path)?;
+        let content = std::fs::read_to_string(&content_path)
+            .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &content_path)))?;
         Ok(Snippet {
             meta,
             content,
@@ -113,23 +117,32 @@ impl SnippetRepository for FSRepo {
     fn save(&self, snippet: &Snippet) -> NibbResult<()> {
         let slug = snippet.meta.get_slug();
         let snippet_path = self.snippet_path(&slug);
-        if !snippet_path.exists() {
-            std::fs::create_dir_all(&snippet_path)?;
-        }
-        let extension = snippet.meta.get_content_extension();
-        let meta_path = self.get_meta_path(&slug);
 
-        if !meta_path.exists() {
-            std::fs::File::create(&meta_path)?;
+        if !snippet_path.exists() {
+            fs::create_dir_all(&snippet_path)
+                .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &snippet_path)))?;
         }
-        std::fs::write(&meta_path, toml::to_string(&snippet.meta)?)
+
+        let meta_path = self.get_meta_path(&slug);
+        fs::write(&meta_path, toml::to_string(&snippet.meta)?)
             .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &meta_path)))?;
 
-        let content_path = self.get_content_path(&slug, &extension);
-        if !content_path.exists() {
-            std::fs::File::create(&content_path)?;
+        for entry in fs::read_dir(&snippet_path)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                if file_name.starts_with("content.") {
+                    fs::remove_file(&path)
+                        .map_err(|e| NibbError::NotFound(format!("Failed to remove old content file {}: {}", path.display(), e)))?;
+                }
+            }
         }
-        std::fs::write(&content_path, &snippet.content)
+
+        let extension = snippet.meta.get_content_extension();
+        let content_path = self.get_content_path(&slug, &extension);
+
+        fs::write(&content_path, &snippet.content)
             .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &content_path)))?;
 
         Ok(())
