@@ -16,9 +16,12 @@ pub enum NibbError {
     #[error("Serde JSON error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
-    #[error("Git error: {0}")]   
+    #[error("Git error: {0}")]
     GitError(#[from] git2::Error),
-    
+
+    #[error("Git error: {0}")]
+    NibbGitError(String),
+
     #[error("Unsupported language extension: {0}")]
     UnsupportedLanguage(String),
 
@@ -57,7 +60,8 @@ pub enum NibbFFIError {
     NotFound(String),
     InvalidSlug(String),
     FFIError(String),
-    GitError(String),   
+    GitError(String),
+    NibbGitError(String),
     Other(String),
 }
 
@@ -80,7 +84,8 @@ impl From<&NibbError> for NibbFFIError {
             NibbError::NotFound(s) => Self::NotFound(s.to_string()),
             NibbError::InvalidSlug(s) => Self::InvalidSlug(s.to_string()),
             NibbError::Other(s) => Self::Other(s.to_string()),
-            NibbError::GitError(e) => Self::GitError(e.to_string()),       
+            NibbError::GitError(e) => Self::GitError(e.to_string()),
+            NibbError::NibbGitError(e) => Self::NibbGitError(e.to_string()),
         }
     }
 }

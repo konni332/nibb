@@ -5,6 +5,8 @@ use crate::ffi::ffi_utils::{c_str_from_str, load_repo_ffi, str_from_c_str};
 use crate::fs::get_nibb_dir;
 use crate::result::NibbFFIError;
 use crate::{FSRepo, Snippet, SnippetRepository};
+use crate::git::git_integration::nibb_git_generic;
+
 /// Loads a snippet by name and returns its JSON representation.
 ///
 /// # Arguments
@@ -151,6 +153,13 @@ pub extern "C" fn save_all_ffi(snippets_json: *const c_char) -> bool {
         Err(_) => false,
     }
 
+}
+
+pub extern "C" fn nibb_git_generic_ffi(args: *const c_char) -> *const c_char{
+    let args = str_from_c_str(args);
+    let args: Vec<String> = args.split_whitespace().map(|s| s.to_string()).collect();
+    let out = nibb_git_generic(args).unwrap_or_else(|e| e.to_json());
+    c_str_from_str(&out)
 }
 
 /// Frees a string previously allocated and returned by an FFI function.
