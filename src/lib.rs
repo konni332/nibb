@@ -21,6 +21,7 @@ pub use ffi::ffi::{
     load_snippet_ffi,
     save_snippet_ffi,
     free_string_ffi,
-    delete_snippet_ffi
+    delete_snippet_ffi,
+    nibb_git_generic_ffi
 };
 // ---
