@@ -1,6 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use slug::slugify;
+use crate::config::config::Config;
+use crate::get_nibb_dir;
+use crate::git::git_integration::GitRepo;
 use crate::result::{NibbError, NibbResult};
 use crate::snippets::snippet::{Meta, Snippet};
 /// Defines the interface for a snippet repository backend.
@@ -32,6 +35,8 @@ pub trait SnippetRepository {
 pub struct FSRepo {
     /// Root directory containing all snippet data.
     pub base_dir: PathBuf,
+    pub config: Config,
+    pub git_repo: GitRepo,
 }
 
 impl FSRepo {
@@ -39,7 +44,11 @@ impl FSRepo {
     ///
     /// Will create `snippets/`, `history/`, and `config.toml` if missing.
     pub fn new<P: AsRef<Path>>(path: P) -> NibbResult<Self> {
+        let config = Config::load(&path.as_ref().join("config.toml"))?;
+        let git_repo = GitRepo::init_or_open(get_nibb_dir()?)?;
         let repo = Self {
+            git_repo,
+            config,
             base_dir: path.as_ref().to_path_buf(),
         };
         repo.ensure_structure()?;
@@ -59,14 +68,33 @@ impl FSRepo {
         self.base_dir.join("config.toml")
     }
     fn ensure_structure(&self) -> NibbResult<()> {
-        std::fs::create_dir_all(&self.base_dir)?;
-        std::fs::create_dir_all(self.snippets_dir())?;
-        std::fs::create_dir_all(self.history_dir())?;
+        fs::create_dir_all(&self.base_dir)?;
+        fs::create_dir_all(self.snippets_dir())?;
+        fs::create_dir_all(self.history_dir())?;
         let config_path = self.config_path();
         if !config_path.exists() {
-            std::fs::File::create(config_path)?;
+            fs::File::create(config_path)?;
         }
         Ok(())
+    }
+    fn auto_commit(&self, snippet: &Snippet) -> NibbResult<()> {
+        if !self.config.git.enabled || !self.config.git.auto_commit {
+            return Ok(());
+        }
+        self.git_repo.add_and_commit(snippet, &self.config)?;
+        self.auto_push()?;
+        Ok(())
+    }
+    fn auto_push(&self) -> NibbResult<()> {
+        if !self.config.git.enabled || !self.config.git.push_on_commit {
+            return Ok(());
+        }
+        match &self.config.git.remote {
+            Some(remote) => {
+                Ok(self.git_repo.push(remote, &self.config.git.branch)?)
+            },
+            None => Ok(())
+        }
     }
     fn get_content_path(&self, slug: &str, extension: &str) -> PathBuf {
         let snippet_path = self.snippet_path(slug);
@@ -145,6 +173,8 @@ impl SnippetRepository for FSRepo {
         fs::write(&content_path, &snippet.content)
             .map_err(|e| NibbError::NotFound(format!("{}:{:?}", e.to_string(), &content_path)))?;
 
+        // git actions (handles config)
+        self.auto_commit(snippet)?;
         Ok(())
     }
     /// Saves a list of snippets.
@@ -160,7 +190,7 @@ impl SnippetRepository for FSRepo {
     fn delete(&self, slug: &str) -> NibbResult<()> {
         let slug = slugify(slug); // just to be sure
         let snippet_path = self.snippet_path(&slug);
-        std::fs::remove_dir_all(snippet_path)?;
+        fs::remove_dir_all(snippet_path)?;
         Ok(())
     }
 }

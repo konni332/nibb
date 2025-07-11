@@ -2,6 +2,8 @@ pub mod snippets;
 mod result;
 pub mod fs;
 pub mod ffi;
+mod git;
+mod config;
 
 // === Lib ===
 // ---
