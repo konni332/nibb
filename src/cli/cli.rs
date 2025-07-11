@@ -19,7 +19,7 @@ pub fn execute_cli(cli_args: Arguments) -> Result<()> {
             tags,
             public
         } => {
-            cli_new(&repo, name, description, content, language, tags, public)?;
+            cli_new(&repo, name, description, content.unwrap_or("".to_string()), language, tags, public)?;
         }
         NibbCommand::List {filter, json } => {
             cli_list(&repo, filter, json)?;

@@ -23,7 +23,7 @@ pub enum NibbCommand {
         description: Option<String>,
         /// Content
         #[clap(short, long)]
-        content: String,
+        content: Option<String>,
         /// Snippet language/file-type
         #[clap(short, long)]
         language: Option<String>,

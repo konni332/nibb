@@ -181,6 +181,7 @@ pub extern "C" fn save_all_ffi(snippets_json: *const c_char) -> bool {
 /// print(output.stdout)
 /// print(output.stderr)
 /// ```
+#[unsafe(no_mangle)]
 pub extern "C" fn nibb_git_generic_ffi(args: *const c_char) -> *const c_char{
     let args = str_from_c_str(args);
     let args: Vec<String> = args.split_whitespace().map(|s| s.to_string()).collect();

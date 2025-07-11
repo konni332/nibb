@@ -81,6 +81,36 @@ char *load_all_ffi(void);
 bool save_all_ffi(const char *snippets_json);
 
 /**
+ * Executes a generic Git command inside the `.nibb` directory and returns the output as JSON.
+ *
+ * # Arguments
+ * - `args`: A pointer to a null-terminated C string containing the Git arguments as a whitespace-separated string, e.g. `"status -s"`.
+ *
+ * # Returns
+ * - A pointer to a null-terminated C string containing a JSON object:
+ *   ```json
+ *   {
+ *     "stdout": "<Git stdout output>",
+ *     "stderr": "<Git stderr output>"
+ *   }
+ *   ```
+ *   - In case of error, `stderr` contains an error message and `stdout` is empty.
+ *
+ * # Safety
+ * - The input C string must be valid and null-terminated.
+ * - The returned string must be freed by the caller using the appropriate function (e.g., `free_string_ffi`).
+ *
+ * # Example (from Lua)
+ * ```lua
+ * local output_json = ffi.C.nibb_git_generic_ffi("status -s")
+ * local output = vim.fn.json_decode(ffi.string(output_json))
+ * print(output.stdout)
+ * print(output.stderr)
+ * ```
+ */
+const char *nibb_git_generic_ffi(const char *args);
+
+/**
  * Frees a string previously allocated and returned by an FFI function.
  *
  * # Arguments
