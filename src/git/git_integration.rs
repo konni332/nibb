@@ -91,7 +91,23 @@ fn format_commit_msg(msg: &str, snippet: &Snippet) -> String {
         .replace("{created}", &snippet.meta.created.to_string())
 }
 
-
+/// Executes a generic Git command inside the `.nibb` directory.
+///
+/// # Arguments
+/// - `args`: A vector of strings representing the Git command arguments, e.g. `["status", "-s"]`.
+///
+/// # Returns
+/// - `Ok(String)`: JSON string containing fields `"stdout"` and `"stderr"`.
+/// - `Err(NibbError)`: An error occurred during command execution or validation.
+///
+/// # Validation
+/// - Ensures only allowed Git subcommands and safe path arguments are accepted.
+///
+/// # Example
+/// ```rust
+/// let output = nibb_git_generic(vec!["status".into(), "-s".into()])?;
+/// println!("{}", output);
+/// ```
 pub fn nibb_git_generic(args: Vec<String>) -> NibbResult<String> {
     validate_git_args(&args).map_err(|e| NibbError::NibbGitError(e))?;
     let path = get_nibb_dir()?;
