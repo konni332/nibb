@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use git2::{Repository, Signature};
+use walkdir::WalkDir;
 use crate::config::config::Config;
 use crate::Snippet;
 
@@ -22,38 +23,46 @@ impl GitRepo {
     }
     pub fn add_and_commit(&self, snippet: &Snippet, cfg: &Config) -> Result<(), git2::Error> {
         let rel_path = PathBuf::from("snippets").join(snippet.meta.get_slug());
+        let abs_path = self.repo.path().parent().unwrap().join(&rel_path);
 
         let message = &format_commit_msg(&cfg.git.commit_message, snippet);
 
         let mut index = self.repo.index()?;
-        index.add_path(rel_path.as_path())?;
-        index.write()?;
 
+        for entry in WalkDir::new(&abs_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let abs_file_path = entry.path();
+            let rel_repo_path = abs_file_path.strip_prefix(self.repo.path().parent().unwrap()).unwrap();
+            index.add_path(rel_repo_path)?;
+        }
+
+        index.write()?;
         let oid = index.write_tree()?;
         let tree = self.repo.find_tree(oid)?;
         let sig = Signature::now(&cfg.git.author, &cfg.git.author_email)?;
+
         let parent_commit = self.repo.head()
             .ok()
             .and_then(|h| h.target())
             .and_then(|oid| self.repo.find_commit(oid).ok());
 
-        let committer = &sig;
-
-                if let Some(parent) = parent_commit {
+        if let Some(parent) = parent_commit {
             self.repo.commit(
                 Some("HEAD"),
                 &sig,
-                committer,
+                &sig,
                 message,
                 &tree,
                 &[&parent],
             )?;
         } else {
-            // Initial commit
             self.repo.commit(
                 Some("HEAD"),
                 &sig,
-                committer,
+                &sig,
                 message,
                 &tree,
                 &[],

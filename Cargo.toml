@@ -1,6 +1,6 @@
 [package]
 name = "nibb"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 
 
@@ -22,6 +22,7 @@ anyhow = "1.0.98"
 colored = {version = "3.0.0", optional = true}
 tempfile = "3.20.0"
 git2 = "0.20.2"
+walkdir = "2.5.0"
 
 [build-dependencies]
 cbindgen = "0.29.0"
