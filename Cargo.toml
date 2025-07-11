@@ -2,11 +2,20 @@
 name = "nibb"
 version = "0.5.0"
 edition = "2024"
+description = "Fast and extensible snippet manager with CLI and FFI support"
+license = "MIT"
+repository = "https://github.com/konni332/nibb"
+readme = "README.md"
 
+
+[[bin]]
+name = "nibb"
+path = "src/main.rs"
 
 [lib]
 name = "nibb_core"
-crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 clap = {version = "4.5.40", features = ["derive"]}
